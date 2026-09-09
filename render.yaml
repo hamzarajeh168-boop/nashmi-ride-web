@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: nashmi-ride
+    env: node
+    plan: free
+    region: frankfurt
+    rootDir: ./
+    buildCommand: npm install --prefix darbak-control-room
+    startCommand: node darbak-control-room/server.js
+    envVars:
+      - key: PORT
+        value: 4000
+      - key: ADMIN_KEY
+        value: darbak-2026

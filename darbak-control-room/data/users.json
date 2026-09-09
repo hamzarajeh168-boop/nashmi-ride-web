@@ -1,0 +1,217 @@
+{
+  "users": [
+    {
+      "id": "48eb098c-bd98-4f64-9503-bb9661b01c98",
+      "role": "customer",
+      "name": "Hamza",
+      "phone": "790905611",
+      "passwordSalt": "b68e42895845767ed0bd03de97ed24ca",
+      "passwordHash": "623b281b4d36813c9d6d3d6b3c01a8172d850801490808a6cd891ceb1e8903786ba6f57abfb372372ae4bee9db93ba614560a5a477d3caec021deb2466183a57",
+      "status": "approved",
+      "accountId": "48eb098c-bd98-4f64-9503-bb9661b01c98",
+      "walletAccountId": "48eb098c-bd98-4f64-9503-bb9661b01c98",
+      "documents": null,
+      "vehicle": null,
+      "createdAt": "2026-09-05T11:16:33.723Z",
+      "reviewedAt": "2026-09-05T11:56:16.610Z"
+    },
+    {
+      "id": "78571b4c-91ea-4eee-98ce-209427e7eb15",
+      "role": "captain",
+      "name": "H1",
+      "phone": "790905612",
+      "passwordSalt": "8c47ef618dff3045f6ad04513825818f",
+      "passwordHash": "e030cab7f3b78d448b4a19472851650b2e14724ed62a7ed9dd94240d654985f7f758967b2a47d2d39344da69c6dfc5d4e18675bbbd2f64342fe77416dbfae891",
+      "status": "approved",
+      "accountId": "790905612",
+      "walletAccountId": "790905612",
+      "documents": {
+        "license": "file:///var/mobile/Containers/Data/Application/5807649A-BFF3-45FF-AD35-0FDAC72AA7BE/Library/Caches/ImagePicker/A9221AAE-EB6C-4592-9AEA-D0CE176EB016.png",
+        "identity": "file:///var/mobile/Containers/Data/Application/5807649A-BFF3-45FF-AD35-0FDAC72AA7BE/Library/Caches/ImagePicker/763FADA4-8E93-47DC-B647-BA45BB626B6C.png",
+        "clearance": "file:///var/mobile/Containers/Data/Application/5807649A-BFF3-45FF-AD35-0FDAC72AA7BE/Library/Caches/ImagePicker/9735E53B-D5F0-4726-99EB-82176DD33FFE.png"
+      },
+      "vehicle": {
+        "description": "file:///var/mobile/Containers/Data/Application/5807649A-BFF3-45FF-AD35-0FDAC72AA7BE/Library/Caches/ImagePicker/0BDB8ECC-99C6-4CD4-BA95-668273EF21AB.png"
+      },
+      "createdAt": "2026-09-05T11:57:05.589Z",
+      "reviewedAt": "2026-09-06T08:49:06.262Z",
+      "available": false
+    },
+    {
+      "id": "3808c8ef-347d-4641-8083-331af7dabe39",
+      "role": "customer",
+      "name": "حمزة",
+      "phone": "0790905611",
+      "passwordSalt": "902af4639f6f88bdaec7ee1d04570ab6",
+      "passwordHash": "a4d6519f41f6c9cbfb8fd42fc6b13df947fc536380d933e5ec3e09f98bad1a0087000b9b274efcf2c8fbb0aebb03b0159ad3e7e33463d5fd7a4dc08dd9c153ef",
+      "status": "approved",
+      "walletAccountId": "0790905611",
+      "documents": {
+        "photo": ""
+      },
+      "createdAt": "2026-09-09T11:31:48.250Z"
+    },
+    {
+      "id": "728d18b2-22e2-437c-ba6e-cba0ad584e45",
+      "role": "customer",
+      "name": "Test Customer",
+      "phone": "999900001",
+      "passwordSalt": "db16b290bd5a5b1612d83878e0296ce3",
+      "passwordHash": "2e010934f2c798373e029bd334111af1134725be6674331e757f596a6a613bfba6647d63a6a24ae4897b409342a9fac1acc3363f1e8ba8bace91be290e03f03a",
+      "status": "approved",
+      "walletAccountId": "999900001",
+      "documents": {
+        "photo": ""
+      },
+      "createdAt": "2026-09-09T12:30:11.029Z"
+    },
+    {
+      "id": "8fee9552-fc9a-4b54-b54b-f5366757dd50",
+      "role": "captain",
+      "name": "Test Captain",
+      "phone": "999900002",
+      "passwordSalt": "9e815d5f7ccb2fca1d2f1bf3ce13786b",
+      "passwordHash": "2a4252c34368c215dc2ab89a78ea5c9b5b3e16c71c4e2f69fd0a39a1500833b5e71664b240da2856d7e67db6b622f67984364fbd0b3feb0e987c0de20bac5176",
+      "status": "approved",
+      "walletAccountId": "999900002",
+      "available": true,
+      "vehicle": {
+        "capacity": 4,
+        "carNumber": "123",
+        "plateNumber": "A-123",
+        "carType": "Toyota"
+      },
+      "documents": {
+        "car": "data:image/png;base64,BBB",
+        "clearance": "data:image/png;base64,FFF",
+        "identity": "data:image/png;base64,CCC",
+        "drivingLicense": "data:image/png;base64,DDD",
+        "photo": "data:image/png;base64,AAA",
+        "license": "data:image/png;base64,EEE"
+      },
+      "createdAt": "2026-09-09T12:30:11.173Z"
+    },
+    {
+      "id": "5ef4866b-8f7f-4ba8-bd8e-6eec6f0382f2",
+      "role": "customer",
+      "name": "Test Customer",
+      "phone": "991100001",
+      "passwordSalt": "b44a6e0ecfd8370b73bc361b442a98c1",
+      "passwordHash": "ead47742302ac290c41dd83ddab634cc133e312a740df870bf7fab6fd0b2ff88821bf94513a8ad8d65ec088e96ee9949a17d20ab4aaf664fb16b7c34294d6e24",
+      "status": "approved",
+      "walletAccountId": "991100001",
+      "documents": {
+        "photo": "data:image/png;base64,AAA"
+      },
+      "createdAt": "2026-09-09T12:36:00.617Z"
+    },
+    {
+      "id": "b998fd8e-6a82-47bd-b602-1fd31ffca8b6",
+      "role": "captain",
+      "name": "Test Captain",
+      "phone": "991100002",
+      "passwordSalt": "7943bf74078b0c309df0d0a67b3963d0",
+      "passwordHash": "4dfc85a399d7af0823e80422f04d2adb72f913317d296c4982840774d1d9c6655ff4f4265807847b4a0d4119d964e7d6693c9e517385d6e95ad80c7fca3949ca",
+      "status": "approved",
+      "walletAccountId": "991100002",
+      "available": true,
+      "vehicle": {
+        "capacity": 4,
+        "carNumber": "123",
+        "plateNumber": "A-123",
+        "carType": "Toyota"
+      },
+      "documents": {
+        "car": "data:image/png;base64,BBB",
+        "clearance": "data:image/png;base64,FFF",
+        "identity": "data:image/png;base64,CCC",
+        "drivingLicense": "data:image/png;base64,DDD",
+        "photo": "data:image/png;base64,AAA",
+        "license": "data:image/png;base64,EEE"
+      },
+      "createdAt": "2026-09-09T12:36:00.693Z"
+    }
+  ],
+  "sessions": [
+    {
+      "token": "5b5053ab1559e01504bdcbfa9edfb85cf1ac1c634201225cbbad970aa37c53b4",
+      "userId": "48eb098c-bd98-4f64-9503-bb9661b01c98",
+      "createdAt": "2026-09-05T11:16:33.780Z"
+    },
+    {
+      "token": "3f92a0dab2cf7894eb4f1b4186b3b8125b94095925fc86d5968e214eb359e0a1",
+      "userId": "49f8baa4-089d-4ff0-8323-3eefcb567e7d",
+      "createdAt": "2026-09-06T13:35:02.416Z"
+    },
+    {
+      "token": "e0bce1ae9438e10291e9644e8449593350ae679d1c2e21e84ef467dbe861e420",
+      "userId": "32327147-38cf-4943-b5f9-57dde18dc68c",
+      "createdAt": "2026-09-06T13:35:02.499Z"
+    },
+    {
+      "token": "97f7d461a25cc910c3c030a8a48de8840d46faf511fa561d46814f735ac82a1e",
+      "userId": "fe1cc51a-8b29-4282-84d8-1406bdf23bef",
+      "createdAt": "2026-09-07T08:10:37.593Z"
+    },
+    {
+      "token": "f03e427b44f41ab6ab7986dc1a9769f08fdd31693f917da44193d0ed4d4f6910",
+      "userId": "78571b4c-91ea-4eee-98ce-209427e7eb15",
+      "createdAt": "2026-09-07T08:19:36.703Z"
+    },
+    {
+      "token": "eddf7508eef1ba5d5e4a0b181f39dfaa7a2d32fc7010ea2ee5b47ce64a10ffc3",
+      "userId": "78571b4c-91ea-4eee-98ce-209427e7eb15",
+      "createdAt": "2026-09-07T08:47:53.586Z"
+    },
+    {
+      "token": "babaf41004057a4669153243b6ae5c16f6fb4ef1a37310aa7b5055809fa47e91",
+      "userId": "fe1cc51a-8b29-4282-84d8-1406bdf23bef",
+      "createdAt": "2026-09-07T08:55:09.243Z"
+    },
+    {
+      "token": "d6abc317c9bc0e2f792203f7e0da58cc8f14390c7db214d0b1766ea48a3bec1c",
+      "userId": "3808c8ef-347d-4641-8083-331af7dabe39",
+      "createdAt": "2026-09-09T11:31:58.952Z"
+    },
+    {
+      "token": "853aad1ef8b7a996c82ad9d232aaa621b1a8fd6156bf65e1f587cbcedca32157",
+      "userId": "78571b4c-91ea-4eee-98ce-209427e7eb15",
+      "createdAt": "2026-09-09T11:49:02.278Z"
+    },
+    {
+      "token": "7c2304c88a53797c06cfc11467ef6549e4c4ec67314d84cf06dee3bbaba3e047",
+      "userId": "78571b4c-91ea-4eee-98ce-209427e7eb15",
+      "createdAt": "2026-09-09T11:49:47.979Z"
+    },
+    {
+      "token": "802f0bbf3725515c70acbf4d667be3a5910d5ffd2dffd57cb1c47ff96d688dd8",
+      "userId": "78571b4c-91ea-4eee-98ce-209427e7eb15",
+      "createdAt": "2026-09-09T12:29:33.194Z"
+    },
+    {
+      "token": "097578e624a7c8644f38828394ed8116ce25307624857b2d3a9fcfa9470c3c66",
+      "userId": "728d18b2-22e2-437c-ba6e-cba0ad584e45",
+      "createdAt": "2026-09-09T12:30:11.114Z"
+    },
+    {
+      "token": "910cc984d60b5e463313983d4de535d6a64e16172eac3c2114c260a6b3c10962",
+      "userId": "8fee9552-fc9a-4b54-b54b-f5366757dd50",
+      "createdAt": "2026-09-09T12:30:11.289Z"
+    },
+    {
+      "token": "7b92bcba37e0f58e85e7fcc22e8f79a66efaea2eea0ed5154f72a2f4cbd91f62",
+      "userId": "3808c8ef-347d-4641-8083-331af7dabe39",
+      "createdAt": "2026-09-09T12:30:54.506Z"
+    },
+    {
+      "token": "f1e909cce509435df2a58d9254a30303f6bbfeab10dc5de368832592f5a88cad",
+      "userId": "5ef4866b-8f7f-4ba8-bd8e-6eec6f0382f2",
+      "createdAt": "2026-09-09T12:36:00.796Z"
+    },
+    {
+      "token": "4898680c0edc8d4c9413a0d03c55af2a07485535c3ff9fc0885c1092c56465db",
+      "userId": "b998fd8e-6a82-47bd-b602-1fd31ffca8b6",
+      "createdAt": "2026-09-09T12:36:00.842Z"
+    }
+  ]
+}

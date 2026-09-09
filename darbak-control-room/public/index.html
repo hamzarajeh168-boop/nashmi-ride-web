@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ناشمي رايد | الرئيسية</title>
+    <style>
+      :root {
+        --bg: #07161f;
+        --bg2: #0d1f2d;
+        --card: rgba(255,255,255,0.05);
+        --line: rgba(255,255,255,0.08);
+        --gold: #f7d66a;
+        --gold-2: #f0b539;
+        --text: #edf5ff;
+        --muted: #a4c2db;
+        --green: #4ad791;
+        --blue: #61b9ff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: linear-gradient(155deg, #040d15 0%, #0d1d2d 42%, #06131a 100%);
+        color: var(--text);
+        font-family: Arial, Tahoma, sans-serif;
+      }
+      .wrap { max-width: 1200px; margin: 0 auto; padding: 32px 18px 60px; }
+      .topbar {
+        display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 28px;
+      }
+      .brand { font-size: 1.8rem; font-weight: 700; }
+      .status {
+        background: rgba(247,214,106,0.1); border: 1px solid rgba(247,214,106,0.3); color: var(--gold);
+        border-radius: 999px; padding: 8px 14px; font-size: 0.83rem; font-weight: 700;
+      }
+      .hero {
+        background: var(--card); border: 1px solid var(--line); border-radius: 28px; padding: 28px;
+        box-shadow: 0 18px 42px rgba(0,0,0,0.25);
+      }
+      h1 { font-size: clamp(2.2rem, 5vw, 4rem); margin: 0 0 12px; }
+      .subtitle {
+        max-width: 900px; color: var(--muted); line-height: 1.9; font-size: 1.04rem; margin-bottom: 20px;
+      }
+      .stats {
+        display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 16px; margin: 26px 0;
+      }
+      .stat {
+        background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; padding: 18px;
+      }
+      .stat strong { display: block; font-size: 1.8rem; margin-top: 10px; }
+      .cards {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 18px;
+      }
+      .card {
+        background: rgba(255,255,255,0.035); border: 1px solid var(--line); border-radius: 20px; padding: 22px;
+      }
+      .card h2 { margin: 0 0 8px; }
+      .card p { margin: 0 0 14px; color: var(--muted); line-height: 1.8; }
+      .btn {
+        display: inline-block; text-decoration: none; border-radius: 12px; padding: 13px 18px; font-weight: 700;
+      }
+      .gold { background: linear-gradient(135deg, var(--gold), var(--gold-2)); color: #0d1d2d; }
+      .blue { background: rgba(97,185,255,0.12); border: 1px solid rgba(97,185,255,0.25); color: var(--text); }
+      .green { background: rgba(74,215,145,0.1); border: 1px solid rgba(74,215,145,0.25); color: var(--text); }
+      .cta {
+        margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px;
+      }
+      @media (max-width: 760px) {
+        .topbar { flex-direction: column; align-items: flex-start; }
+        .stats { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="topbar">
+        <div class="brand">🚖 ناشمي رايد</div>
+        <div class="status">نسخة ويب جاهزة للنشر</div>
+      </header>
+
+      <section class="hero">
+        <h1>حضور سريع، رحلات أسهل، إدارة ذكية</h1>
+        <p class="subtitle">
+          مشروع ناشمي رايد تم تحويله إلى واجهة ويب فقط، مع ثلاث صفحات رئيسية: صفحة الراكب، صفحة الكابتن، وغرفة التحكم.
+          كل صفحة جاهزة للعرض في المتصفح ومناسبة للنشر على Render أو أي Hosting ويب.
+        </p>
+
+        <div class="stats">
+          <div class="stat">
+            <span>الرحلات اليوم</span>
+            <strong>1,280</strong>
+          </div>
+          <div class="stat">
+            <span>الكباتن النشطون</span>
+            <strong>320</strong>
+          </div>
+          <div class="stat">
+            <span>التقييم</span>
+            <strong>4.9/5</strong>
+          </div>
+        </div>
+
+        <div class="cards">
+          <div class="card">
+            <h2>صفحة الراكب</h2>
+            <p>واجهة سهلة لإرسال الطلب، اختيار الخدمة، ومتابعة الرحلة من لحظة الحجز حتى الوصول.</p>
+            <a class="btn gold" href="/passenger">فتح صفحة الراكب</a>
+          </div>
+
+          <div class="card">
+            <h2>صفحة الكابتن</h2>
+            <p>لوحة متابعة الطلبات، القبول، الربح اليومي، وملف الكابتن مع مختلف البيانات الأساسية.</p>
+            <a class="btn blue" href="/captain">فتح صفحة الكابتن</a>
+          </div>
+
+          <div class="card">
+            <h2>غرفة التحكم</h2>
+            <p>لوحة إدارة الطلبات، النظام الداخلي، ومراجعة كل الرحلات والعمليات عبر شاشة مركزية.</p>
+            <a class="btn green" href="/control-room">فتح غرفة التحكم</a>
+          </div>
+        </div>
+
+        <div class="cta">
+          <a class="btn gold" href="/passenger">ابدأ كراكب</a>
+          <a class="btn blue" href="/captain">ابدأ ككابتن</a>
+          <a class="btn green" href="/control-room">غرفة التحكم</a>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

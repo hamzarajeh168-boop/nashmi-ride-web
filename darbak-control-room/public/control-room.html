@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nashmi Ride Control - إدارة النقل</title>
+    <link rel="stylesheet" href="/style.css" />
+    <style>
+      .section-title { margin-bottom: 4px; }
+      .wide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .three-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .stack { display: grid; gap: 14px; }
+      .field input, .field select { width: 100%; }
+      .actions { flex-wrap: wrap; }
+      .section-note { margin: 0 0 18px; color: var(--text-sec); line-height: 1.8; }
+      .divider { height: 1px; background: var(--border); margin: 20px 0; }
+      @media (max-width: 680px) {
+        .wide-grid, .three-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="topbar">
+        <div class="logo">🚗 Nashmi Ride <span>· غرفة التحكم</span></div>
+        <div id="statusPill" class="status-pill status-off">غير متصل بالسيرفر</div>
+      </header>
+
+      <section class="card">
+        <h2 class="section-title">تسعيرة النقل المشترك داخل المحافظة</h2>
+        <p class="section-note">هاي القيم بتنعكس فوراً على تطبيق الراكب وتطبيق الكابتن (كل ما فتحوا شاشة الرحلة المشتركة رح يجيبوا آخر تسعيرة من هون).</p>
+        <div class="grid three-grid">
+          <label class="field"><span>سعر الكيلومتر الواحد (د.أ / كم)</span><input id="perKmRate" type="number" step="0.01"></label>
+          <label class="field"><span>سعر دقيقة الانتظار (د.أ / دقيقة)</span><input id="waitMinuteRate" type="number" step="0.01"></label>
+          <label class="field"><span>الأجرة الأساسية (د.أ)</span><input id="baseFare" type="number" step="0.01"></label>
+          <label class="field"><span>الحد الأدنى للأجرة (د.أ)</span><input id="minFare" type="number" step="0.01"></label>
+          <label class="field"><span>سعر الكيلو - سيارة غير مشتركة (د.أ / كم)</span><input id="privatePerKmRate" type="number" step="0.01"></label>
+          <label class="field"><span>سعر دقائق الانتظار - غير مشتركة (د.أ / دقيقة)</span><input id="privateWaitMinuteRate" type="number" step="0.01"></label>
+          <label class="field"><span>سعر فتحة العداد - غير مشتركة (د.أ)</span><input id="privateBaseFare" type="number" step="0.01"></label>
+          <label class="field"><span>أقل سعر - غير مشتركة (د.أ)</span><input id="privateMinFare" type="number" step="0.01"></label>
+          <label class="field"><span>سعر المقعد المشترك</span><input id="sharedSeatFare" type="number" step="0.01"></label>
+          <label class="field"><span>سعر المقعد الخلفي</span><input id="rearSeatFare" type="number" step="0.01"></label>
+          <label class="field"><span>سعر السيارة الكاملة غير المشتركة</span><input id="fullCarFare" type="number" step="0.01"></label>
+          <label class="field"><span>سعر راكب بين المحافظات</span><input id="interGovernorateSeatFare" type="number" step="0.01"></label>
+          <label class="field"><span>سعر سيارة بين المحافظات</span><input id="interGovernorateCarFare" type="number" step="0.01"></label>
+          <label class="field"><span>سعر المحافظة إلى المطار</span><input id="governorateAirportFare" type="number" step="0.01"></label>
+          <label class="field"><span>سعر المحافظات</span><input id="governorateFare" type="number" step="0.01"></label>
+          <label class="field"><span>سعر العاصمة</span><input id="capitalFare" type="number" step="0.01"></label>
+          <label class="field"><span>نسبة الشركة</span><input id="companyCommissionRate" type="number" step="0.01"></label>
+          <label class="field"><span>رسوم تسجيل كابتن (تُخصم سالبة عند الموافقة)</span><input id="captainRegistrationFee" type="number" step="0.01"></label>
+          <label class="field"><span>سعر سيارة 4 ركاب</span><input id="capacityFare4" type="number" step="0.01"></label>
+          <label class="field"><span>سعر سيارة 5 ركاب</span><input id="capacityFare5" type="number" step="0.01"></label>
+          <label class="field"><span>سعر سيارة 7 ركاب</span><input id="capacityFare7" type="number" step="0.01"></label>
+        </div>
+
+        <h2>تسعيرة خاصة للمحافظات الجنوبية</h2>
+        <p class="section-note">حدّد سعر خاص لكل محافظة من الجنوب، وبتنعكس فوراً على تطبيق العميل.</p>
+        <div class="grid">
+          <label class="field"><span>الكرك</span><input id="southFare_Karak" type="number" step="0.01"></label>
+          <label class="field"><span>الطفيلة</span><input id="southFare_Tafilah" type="number" step="0.01"></label>
+          <label class="field"><span>معان</span><input id="southFare_Maan" type="number" step="0.01"></label>
+          <label class="field"><span>العقبة</span><input id="southFare_Aqaba" type="number" step="0.01"></label>
+        </div>
+        <div class="grid">
+          <label class="field"><span>مفتاح الإدارة (Admin Key)</span><input id="adminKey" type="password" autocomplete="off"></label>
+        </div>
+        <div class="actions">
+          <button id="saveBtn" class="btn-gold">حفظ التسعيرة</button>
+          <button id="refreshBtn" class="btn-ghost">تحديث</button>
+        </div>
+        <p id="msg" class="msg"></p>
+        <p id="meta" class="meta"></p>
+      </section>
+
+      <section class="card">
+        <h2>مراجعة الكباتن</h2>
+        <p class="section-note">راجع المستندات وعدّل بيانات المركبة أو الصور من هنا فقط. الكابتن لا يستطيع تعديل البيانات بعد إرسالها.</p>
+        <button id="captainsRefreshBtn" class="btn-ghost">تحميل طلبات الكباتن</button>
+        <p id="captainsMsg" class="msg"></p>
+        <div id="captainsList" class="stack"></div>
+      </section>
+
+      <section class="card">
+        <h2>بحث عن كابتن أو عميل</h2>
+        <p class="section-note">أدخل رقم الهاتف لعرض بيانات الحساب، رصيده، سجل محفظته وسجل رحلاته (سواء كان كابتن أو عميل).</p>
+        <div class="actions">
+          <input id="customerPhoneSearch" class="search-input" placeholder="رقم الهاتف">
+          <button id="customerSearchBtn" class="btn-gold">بحث</button>
+        </div>
+        <p id="customerSearchMsg" class="msg"></p>
+        <div id="customerResult"></div>
+      </section>
+
+      <section class="card">
+        <h2>شكاوى العملاء والكباتن</h2>
+        <p class="section-note">كل شكوى مرسلة من تطبيق العميل أو الكابتن تظهر هنا لفريق العمليات.</p>
+        <button id="supportRefreshBtn" class="btn-ghost">تحديث الشكاوى</button>
+        <p id="supportAdminMsg" class="msg"></p>
+        <div id="supportList" class="stack"></div>
+      </section>
+
+      <section class="card">
+        <h2>تتبع رحلة</h2>
+        <p class="section-note">ابحث برقم الرحلة لمعرفة العميل والكابتن والمسار والحالة.</p>
+        <div class="actions">
+          <input id="tripSearchInput" class="search-input" placeholder="رقم الرحلة">
+          <button id="tripSearchBtn" class="btn-gold">عرض الرحلة</button>
+        </div>
+        <p id="tripSearchMsg" class="msg"></p>
+        <div id="tripResult"></div>
+      </section>
+
+      <section class="card">
+        <h2>سجل جميع الرحلات</h2>
+        <p class="section-note">هذا السجل متاح لغرفة التحكم فقط، ويشمل رحلات العملاء والكباتن مع رقم كل رحلة.</p>
+        <button id="adminRidesRefreshBtn" class="btn-ghost">تحميل سجل الرحلات</button>
+        <p id="adminRidesMsg" class="msg"></p>
+        <div id="adminRidesList" class="wallet-list"></div>
+      </section>
+
+      <section class="card">
+        <h2>إرسال رصيد</h2>
+        <p class="section-note">أضف رصيدًا إلى محفظة كابتن أو عميل، وسيُحفظ مركزيًا ليظهر في تطبيقه.</p>
+        <div class="grid">
+          <label class="field"><span>نوع الحساب</span><select id="walletRole"><option value="captain">كابتن</option><option value="customer">عميل</option></select></label>
+          <label class="field"><span>رقم الهاتف</span><input id="walletAccountId"></label>
+          <label class="field"><span>اسم الحساب</span><input id="walletAccountName"></label>
+          <label class="field"><span>قيمة الرصيد (د.أ)</span><input id="walletAmount" type="number" step="0.01"></label>
+          <label class="field"><span>ملاحظة العملية</span><input id="walletNote"></label>
+        </div>
+        <div class="actions">
+          <button id="sendWalletBtn" class="btn-gold">إرسال وحفظ الرصيد</button>
+          <button id="walletRefreshBtn" class="btn-ghost">عرض الأرصدة</button>
+        </div>
+        <p id="walletMsg" class="msg"></p>
+        <div id="walletList" class="wallet-list"></div>
+      </section>
+
+      <section class="card">
+        <h2>الرموز الترويجية</h2>
+        <p class="section-note">أنشئ رمزًا بقيمة تحددها، والعميل يستخدمه من تطبيقه مرة واحدة فيضاف الرصيد لمحفظته فورًا.</p>
+        <div class="grid">
+          <label class="field"><span>الرمز</span><input id="promoCode"></label>
+          <label class="field"><span>القيمة (د.أ)</span><input id="promoAmount" type="number" step="0.01"></label>
+        </div>
+        <div class="actions">
+          <button id="promoCreateBtn" class="btn-gold">إنشاء الرمز</button>
+          <button id="promoRefreshBtn" class="btn-ghost">تحديث القائمة</button>
+        </div>
+        <p id="promoMsg" class="msg"></p>
+        <div id="promoList" class="wallet-list"></div>
+      </section>
+
+      <section class="card">
+        <h2>سحب رصيد</h2>
+        <p class="section-note">السحب مسموح يعدي الرصيد للسالب (مثل رسوم تسجيل الكابتن قبل الشحن).</p>
+        <div class="grid">
+          <label class="field"><span>نوع الحساب</span><select id="withdrawRole"><option value="captain">كابتن</option><option value="customer">عميل</option></select></label>
+          <label class="field"><span>رقم الهاتف</span><input id="withdrawPhone"></label>
+          <label class="field"><span>القيمة</span><input id="withdrawAmount" type="number" step="0.01"></label>
+        </div>
+        <button id="withdrawBtn" class="btn-gold">سحب الرصيد</button>
+        <p id="withdrawMsg" class="msg"></p>
+      </section>
+
+      <section class="card">
+        <h2>إدارة الحسابات</h2>
+        <div class="actions">
+          <input id="usersSearch" class="search-input" placeholder="بحث بالاسم أو الهاتف">
+          <button id="usersRefreshBtn" class="btn-ghost">تحميل الحسابات</button>
+        </div>
+        <p id="usersMsg" class="msg"></p>
+        <div id="usersList" class="wallet-list"></div>
+      </section>
+
+      <section class="card">
+        <h2>مثال حي على حساب الأجرة</h2>
+        <p class="section-note">جرّب رحلة افتراضية عشان تشوف كيف رح يطلع السعر عند الراكب</p>
+        <div class="grid">
+          <label class="field"><span>المسافة (كم)</span><input id="sampleKm" type="number" value="12" min="0" step="0.1"></label>
+          <label class="field"><span>دقائق الانتظار</span><input id="sampleWait" type="number" value="5" min="0" step="1"></label>
+        </div>
+        <div id="preview" class="preview"></div>
+      </section>
+
+      <footer>يعمل هذا السيرفر كنقطة اتصال مشتركة بين تطبيق الراكب وتطبيق الكابتن. تأكد أن الأجهزة على نفس الشبكة.</footer>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

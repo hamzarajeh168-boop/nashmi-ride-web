@@ -1,0 +1,15 @@
+﻿node_modules
+.idea
+.expo
+.DS_Store
+npm-debug.log*
+.env
+.env.*
+/eas.json
+/tools/
+/darbak-passenger/
+**/node_modules
+**/.expo
+**/.idea
+**/.vscode
+**/dist

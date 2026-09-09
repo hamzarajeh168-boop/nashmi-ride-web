@@ -1,0 +1,15 @@
+{
+  "name": "darbak-control-room",
+  "version": "1.0.0",
+  "private": true,
+  "description": "غرفة تحكم دربك - تدير تسعيرة النقل المشترك داخل المحافظة لتطبيقي الراكب والكابتن",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}

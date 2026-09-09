@@ -1,0 +1,35 @@
+{
+  "perKmRate": 0.05,
+  "waitMinuteRate": 0.01,
+  "baseFare": 0.1,
+  "minFare": 1,
+  "privateCarFare": {
+    "baseFare": 0.5,
+    "perKmRate": 0.4,
+    "waitMinuteRate": 0.1,
+    "minFare": 2
+  },
+  "sharedSeatFare": 10,
+  "rearSeatFare": 12,
+  "fullCarFare": 20,
+  "interGovernorateSeatFare": 8,
+  "interGovernorateCarFare": 25,
+  "governorateAirportFare": 25,
+  "governorateFare": 5,
+  "capitalFare": 6,
+  "companyCommissionRate": 0.2,
+  "captainRegistrationFee": 5,
+  "capacityFares": {
+    "4": 20,
+    "5": 24,
+    "7": 32
+  },
+  "southFares": {
+    "الكرك": 8,
+    "الطفيلة": 10,
+    "معان": 12,
+    "العقبة": 15
+  },
+  "updatedBy": "مسؤول غرفة التحكم",
+  "updatedAt": "2026-09-09T11:28:09.246Z"
+}

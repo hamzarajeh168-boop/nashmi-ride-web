@@ -1,0 +1,34 @@
+{
+  "codes": [
+    {
+      "code": "NASHMIRIDE",
+      "amount": 1,
+      "active": true,
+      "createdBy": "غرفة التحكم",
+      "createdAt": "2026-09-06T11:41:05.286Z"
+    },
+    {
+      "code": "TEST10",
+      "amount": 10,
+      "active": true,
+      "createdBy": "غرفة التحكم",
+      "createdAt": "2026-09-06T09:26:45.300Z"
+    },
+    {
+      "code": "WELCOME5",
+      "amount": 5,
+      "active": true,
+      "createdBy": "غرفة التحكم",
+      "createdAt": "2026-09-06T00:00:00.000Z"
+    }
+  ],
+  "updatedAt": "2026-09-06T11:41:21.225Z",
+  "promos": [
+    {
+      "code": "HAMZA",
+      "amount": 1,
+      "active": true,
+      "createdAt": "2026-09-07T13:42:51.780Z"
+    }
+  ]
+}

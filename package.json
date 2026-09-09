@@ -1,0 +1,12 @@
+{
+  "name": "nashmi-ride-web",
+  "private": true,
+  "scripts": {
+    "start": "node darbak-control-room/server.js",
+    "dev": "node darbak-control-room/server.js",
+    "install:server": "npm install --prefix darbak-control-room"
+  },
+  "dependencies": {
+    "eas-cli": "^23.2.0"
+  }
+}
