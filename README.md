@@ -25,8 +25,8 @@ Then open:
 
 Use these settings in Render:
 
-- Build Command: `npm install --prefix darbak-control-room`
-- Start Command: `node darbak-control-room/server.js`
+- Build Command: `npm install`
+- Start Command: `npm start`
 - Port: `4000`
 
 ## Notes

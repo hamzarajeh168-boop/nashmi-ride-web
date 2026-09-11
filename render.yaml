@@ -5,9 +5,11 @@ services:
     plan: free
     region: frankfurt
     rootDir: ./
-    buildCommand: npm install --prefix darbak-control-room
-    startCommand: node darbak-control-room/server.js
+    buildCommand: npm install
+    startCommand: npm start
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: PORT
         value: 4000
       - key: ADMIN_KEY
