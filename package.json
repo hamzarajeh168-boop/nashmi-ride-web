@@ -7,6 +7,8 @@
     "install:server": "npm install --prefix darbak-control-room"
   },
   "dependencies": {
-    "eas-cli": "^23.2.0"
+    "cors": "^2.8.6",
+    "eas-cli": "^23.2.0",
+    "express": "^5.2.1"
   }
 }
