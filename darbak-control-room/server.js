@@ -280,7 +280,7 @@ app.get('/api/rides/mine', (req, res) => {
   if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
   const rides = loadFile(RIDES_FILE);
   if (!Array.isArray(rides.rides)) rides.rides = [];
-  const mine = rides.rides.filter(r => user.role === 'customer' ? r.customerId === user.id && ['searching', 'assigned', 'started'].includes(r.status) : r.captainId === user.id && ['assigned', 'started'].includes(r.status));
+  const mine = rides.rides.filter(r => user.role === 'customer' ? r.customerId === user.id && ['searching', 'assigned', 'started', 'completed'].includes(r.status) : r.captainId === user.id && ['assigned', 'started'].includes(r.status));
   res.json(mine.map(ride => enrichRideForUser(ride, user)));
 });
 
@@ -374,26 +374,19 @@ app.post('/api/rides/:tripNumber/start', (req, res) => {
     res.json(trip);
   });
 
-  // إنهاء الرحلة عند الوصول فقط — بعد القبول وبدء الرحلة
-  app.post('/api/rides/:tripNumber/complete', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    if (!user || user.role !== 'captain') return res.status(401).json({ error: 'يلزم دخول الكابتن' });
-    withLock('rides', () => {
-      const rides = loadFile(RIDES_FILE);
-      const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
-      if (!trip || trip.captainId !== user.id) return res.status(404).json({ error: 'الرحلة غير موجودة لحسابك' });
-      if (trip.status !== 'started') return res.status(409).json({ error: 'ابدأ الرحلة أولاً ثم أنهِها عند الوصول' });
-      trip.status = 'completed';
-      trip.completedAt = new Date().toISOString();
-      writeData(RIDES_FILE, rides);
-      const users = loadFile(USERS_FILE);
-      const captain = users.users.find(item => item.id === user.id);
-      if (captain) {
-        captain.available = true;
-        writeData(USERS_FILE, users);
-      }
-      res.json(trip);
-    });
+});
+
+app.post('/api/rides/:tripNumber/arrive', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user || user.role !== 'captain') return res.status(401).json({ error: 'يلزم دخول الكابتن' });
+  withLock('rides', () => {
+    const rides = loadFile(RIDES_FILE);
+    const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
+    if (!trip || trip.captainId !== user.id) return res.status(404).json({ error: 'الرحلة غير موجودة لحسابك' });
+    if (trip.status !== 'started') return res.status(409).json({ error: 'ابدأ الرحلة أولاً' });
+    trip.arrivedAt = new Date().toISOString();
+    writeData(RIDES_FILE, rides);
+    res.json(trip);
   });
 });
 
@@ -423,7 +416,7 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
   const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
   if (!trip) return res.status(404).json({ error: 'غير موجودة' });
   if (trip.captainId !== user.id) return res.status(403).json({ error: 'الرحلة ليست محجوزة لك' });
-  if (!['assigned', 'started'].includes(trip.status)) return res.status(409).json({ error: 'الرحلة غير قابلة للإنهاء' });
+  if (trip.status !== 'started') return res.status(409).json({ error: 'أنهِ الرحلة بعد بدءها والوصول إلى الموقع' });
 
   const pricing = loadFile(PRICING_FILE);
   const price = Number(trip.price) || 0;
@@ -441,6 +434,30 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
     writeData(WALLETS_FILE, wallets);
   }
   res.json(trip);
+  });
+
+  app.get('/api/rides/:tripNumber/chat', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
+    const trip = loadFile(RIDES_FILE).rides.find(item => item.tripNumber === req.params.tripNumber);
+    if (!trip || (trip.customerId !== user.id && trip.captainId !== user.id)) return res.status(403).json({ error: 'غير مسموح' });
+    res.json(trip.messages || []);
+  });
+
+  app.post('/api/rides/:tripNumber/chat', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
+    withLock('rides', () => {
+      const rides = loadFile(RIDES_FILE);
+      const trip = rides.rides.find(item => item.tripNumber === req.params.tripNumber);
+      if (!trip || (trip.customerId !== user.id && trip.captainId !== user.id)) return res.status(403).json({ error: 'غير مسموح' });
+      const text = String(req.body?.text || '').trim().slice(0, 500);
+      if (!text) return res.status(400).json({ error: 'اكتب رسالة' });
+      if (!Array.isArray(trip.messages)) trip.messages = [];
+      trip.messages.push({ senderId: user.id, senderName: user.name, text, createdAt: new Date().toISOString() });
+      writeData(RIDES_FILE, rides);
+      res.status(201).json(trip.messages[trip.messages.length - 1]);
+    });
   });
 });
 
