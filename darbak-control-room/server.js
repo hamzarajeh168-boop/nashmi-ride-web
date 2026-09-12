@@ -3,6 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { syncRides, loadRides } = require('../db');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -49,6 +50,9 @@ const writeData = (file, data) => {
   const tmp = file + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
   fs.renameSync(tmp, file); // كتابة آمنة: ما بتعطش ملف نصّاً لو انقطعت بنص الكتابة
+  if (file === RIDES_FILE && Array.isArray(data.rides)) {
+    syncRides(data.rides).catch(error => console.error('[database rides sync]', error));
+  }
 };
 
 // ضمان الشكل الافتراضي على كل قراءة — يمنع undefined.users / undefined.captains
@@ -369,6 +373,28 @@ app.post('/api/rides/:tripNumber/start', (req, res) => {
     writeData(RIDES_FILE, rides);
     res.json(trip);
   });
+
+  // إنهاء الرحلة عند الوصول فقط — بعد القبول وبدء الرحلة
+  app.post('/api/rides/:tripNumber/complete', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user || user.role !== 'captain') return res.status(401).json({ error: 'يلزم دخول الكابتن' });
+    withLock('rides', () => {
+      const rides = loadFile(RIDES_FILE);
+      const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
+      if (!trip || trip.captainId !== user.id) return res.status(404).json({ error: 'الرحلة غير موجودة لحسابك' });
+      if (trip.status !== 'started') return res.status(409).json({ error: 'ابدأ الرحلة أولاً ثم أنهِها عند الوصول' });
+      trip.status = 'completed';
+      trip.completedAt = new Date().toISOString();
+      writeData(RIDES_FILE, rides);
+      const users = loadFile(USERS_FILE);
+      const captain = users.users.find(item => item.id === user.id);
+      if (captain) {
+        captain.available = true;
+        writeData(USERS_FILE, users);
+      }
+      res.json(trip);
+    });
+  });
 });
 
 // إلغاء الرحلة — من العميل أو الكابتن المسؤول
@@ -483,7 +509,22 @@ app.patch('/api/captains/me/availability', (req, res) => {
   res.json({ ok: true, available: captain.available !== false, user: publicUser(captain) });
 });
 
-app.listen(PORT, () => console.log(`Darbak Server on ${PORT}`));
+async function startServer() {
+  try {
+    const databaseRides = await loadRides();
+    if (databaseRides && databaseRides.length) {
+      writeData(RIDES_FILE, { rides: databaseRides });
+    } else {
+      const localRides = loadFile(RIDES_FILE);
+      await syncRides(localRides.rides || []);
+    }
+  } catch (error) {
+    console.error('[database startup]', error);
+  }
+  app.listen(PORT, () => console.log(`Darbak Server on ${PORT}`));
+}
+
+startServer();
 
 // ===== المسارات الإدارية لغرفة التحكم =====
 
