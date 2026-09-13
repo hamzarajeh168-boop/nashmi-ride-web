@@ -634,7 +634,7 @@ app.post('/api/auth/register', (req, res) => {
   if (!['customer', 'captain'].includes(role) || !String(name || '').trim() || !normalizedPhone || String(password || '').length < 6) {
     return res.status(400).json({ error: 'أدخل الاسم ورقم هاتف من 9 أرقام أو 10 أرقام مع الصفر، وكلمة مرور من 6 أحرف أو أرقام على الأقل' });
   }
-  if (role === 'captain' && (!vehicle || !vehicle.category || !vehicle.carType || !vehicle.carNumber || !vehicle.plateNumber || !documents || Object.values(documents).some(value => !value))) {
+  if (role === 'captain' && (!vehicle || typeof vehicle.electric !== 'boolean' || !vehicle.carType || !vehicle.carNumber || !vehicle.plateNumber || !documents || Object.values(documents).some(value => !value))) {
     return res.status(400).json({ error: 'بيانات الكابتن وصور الهوية والرخص والسيارة وعدم المحكومية مطلوبة' });
   }
   const users = loadFile(USERS_FILE);
@@ -652,6 +652,7 @@ app.post('/api/auth/register', (req, res) => {
     status: role === 'customer' ? 'approved' : 'pending',
     walletAccountId: normalizedPhone,
     available: role === 'captain' ? true : undefined,
+    services: role === 'captain' ? ['private', 'shared_intra', 'shared_intercity', 'electric', 'airport'] : undefined,
     vehicle: role === 'captain' ? vehicle : undefined,
     documents: role === 'captain' ? documents : { photo: documents?.photo || '' },
     createdAt: new Date().toISOString()
