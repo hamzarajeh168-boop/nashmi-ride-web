@@ -268,7 +268,7 @@ app.post('/api/rides', (req, res) => {
       if (!Array.isArray(rides.rides)) rides.rides = [];
       const body = req.body && typeof req.body === 'object' ? req.body : {};
       const rideType = body.rideType === 'intercity' ? 'intercity' : 'intra';
-      const serviceType = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'].includes(body.serviceType)
+      const serviceType = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity', 'jeep'].includes(body.serviceType)
         ? body.serviceType
         : (body.airportRequest ? 'airport' : body.vehicleType === 'private' ? 'private' : rideType === 'intercity' ? 'shared_intercity' : 'shared_intra');
       const vehicleType = serviceType === 'private' || serviceType === 'electric' ? 'private' : 'shared';
@@ -332,6 +332,7 @@ function nextCaptainForRide(ride, rides) {
     if (busy.has(captain.id) || attempted.has(captain.id)) return false;
     if (ride.targetCaptainId && ride.targetCaptainId !== captain.id) return false;
     const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'];
+    if (ride.serviceType === 'jeep' && (captain.vehicle?.bodyType !== 'jeep' || Number(captain.vehicle?.capacity || 0) < 7)) return false;
     if (ride.serviceType && !services.includes(ride.serviceType) && !(ride.serviceType === 'shared_intra' && services.includes('shared')) && !(ride.serviceType === 'shared_intercity' && services.includes('shared'))) return false;
     return true;
   });
@@ -634,7 +635,7 @@ app.post('/api/auth/register', (req, res) => {
   if (!['customer', 'captain'].includes(role) || !String(name || '').trim() || !normalizedPhone || String(password || '').length < 6) {
     return res.status(400).json({ error: 'أدخل الاسم ورقم هاتف من 9 أرقام أو 10 أرقام مع الصفر، وكلمة مرور من 6 أحرف أو أرقام على الأقل' });
   }
-  if (role === 'captain' && (!vehicle || typeof vehicle.electric !== 'boolean' || !vehicle.carType || !vehicle.carNumber || !vehicle.plateNumber || !documents || Object.values(documents).some(value => !value))) {
+  if (role === 'captain' && (!vehicle || typeof vehicle.electric !== 'boolean' || !vehicle.carType || !vehicle.bodyType || !Number.isFinite(Number(vehicle.capacity)) || Number(vehicle.capacity) < 1 || !vehicle.carNumber || !vehicle.plateNumber || !documents || Object.values(documents).some(value => !value))) {
     return res.status(400).json({ error: 'بيانات الكابتن وصور الهوية والرخص والسيارة وعدم المحكومية مطلوبة' });
   }
   const users = loadFile(USERS_FILE);
@@ -652,7 +653,9 @@ app.post('/api/auth/register', (req, res) => {
     status: role === 'customer' ? 'approved' : 'pending',
     walletAccountId: normalizedPhone,
     available: role === 'captain' ? true : undefined,
-    services: role === 'captain' ? ['private', 'shared_intra', 'shared_intercity', 'electric', 'airport'] : undefined,
+    services: role === 'captain'
+      ? ['private', 'shared_intra', 'shared_intercity', 'electric', 'airport', ...(vehicle?.bodyType === 'jeep' && Number(vehicle?.capacity) >= 7 ? ['jeep'] : [])]
+      : undefined,
     vehicle: role === 'captain' ? vehicle : undefined,
     documents: role === 'captain' ? documents : { photo: documents?.photo || '' },
     createdAt: new Date().toISOString()
@@ -716,8 +719,8 @@ app.patch('/api/captains/me/availability', (req, res) => {
   if (!captain) return res.status(404).json({ error: 'الكابتن غير موجود' });
   captain.available = available;
   if (Array.isArray(req.body?.services)) {
-    const allowedServices = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'];
-    captain.services = [...new Set(req.body.services.filter(service => allowedServices.includes(service)))];
+    const allowedServices = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity', 'jeep'];
+    captain.services = [...new Set(req.body.services.filter(service => allowedServices.includes(service)).filter(service => service !== 'jeep' || (captain.vehicle?.bodyType === 'jeep' && Number(captain.vehicle?.capacity || 0) >= 7)) )];
   }
   if (req.body?.location && Number.isFinite(Number(req.body.location.lat)) && Number.isFinite(Number(req.body.location.lng))) {
     captain.location = {
