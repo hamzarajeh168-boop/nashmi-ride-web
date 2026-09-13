@@ -139,6 +139,19 @@ function isPasswordValid(password, user) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+function normalizePhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 9) return `0${digits}`;
+  if (digits.length === 10 && digits.startsWith('0')) return digits;
+  return '';
+}
+
+function samePhone(left, right) {
+  const normalizedLeft = normalizePhone(left);
+  const normalizedRight = normalizePhone(right);
+  return Boolean(normalizedLeft && normalizedLeft === normalizedRight);
+}
+
 function publicUser(user) {
   return {
     id: user.id,
@@ -202,7 +215,7 @@ app.get('/api/wallets/me', (req, res) => {
   const user = getAuthenticatedUser(req);
   if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
   const wallets = loadFile(WALLETS_FILE);
-  const account = wallets[`${user.role}s`].find(a => a.accountId === user.walletAccountId);
+  const account = wallets[`${user.role}s`].find(a => samePhone(a.accountId, user.walletAccountId));
   const rides = loadFile(RIDES_FILE).rides || [];
   const completed = rides.filter(ride => ride.captainId === user.id && ride.status === 'completed');
   res.json({
@@ -617,14 +630,15 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
 // الهوية (Auth)
 app.post('/api/auth/register', (req, res) => {
   const { role, name, phone, password, vehicle, documents } = req.body;
-  if (!['customer', 'captain'].includes(role) || !String(name || '').trim() || !String(phone || '').trim() || String(password || '').length < 6) {
-    return res.status(400).json({ error: 'أدخل الاسم ورقم الهاتف وكلمة مرور من 6 أحرف أو أرقام على الأقل' });
+  const normalizedPhone = normalizePhone(phone);
+  if (!['customer', 'captain'].includes(role) || !String(name || '').trim() || !normalizedPhone || String(password || '').length < 6) {
+    return res.status(400).json({ error: 'أدخل الاسم ورقم هاتف من 9 أرقام أو 10 أرقام مع الصفر، وكلمة مرور من 6 أحرف أو أرقام على الأقل' });
   }
   if (role === 'captain' && (!vehicle || !vehicle.carType || !vehicle.carNumber || !vehicle.plateNumber || !documents || Object.values(documents).some(value => !value))) {
     return res.status(400).json({ error: 'بيانات الكابتن وصور الهوية والرخص والسيارة وعدم المحكومية مطلوبة' });
   }
   const users = loadFile(USERS_FILE);
-  if (users.users.find(u => u.phone === phone)) return res.status(409).json({ error: 'موجود مسبقاً' });
+  if (users.users.find(u => samePhone(u.phone, normalizedPhone))) return res.status(409).json({ error: 'رقم الهاتف موجود مسبقاً' });
 
   const id = crypto.randomUUID();
   const pwd = hashPassword(String(password));
@@ -632,11 +646,11 @@ app.post('/api/auth/register', (req, res) => {
     id,
     role,
     name,
-    phone,
+    phone: normalizedPhone,
     passwordSalt: pwd.salt,
     passwordHash: pwd.hash,
     status: role === 'customer' ? 'approved' : 'pending',
-    walletAccountId: phone,
+    walletAccountId: normalizedPhone,
     available: role === 'captain' ? true : undefined,
     vehicle: role === 'captain' ? vehicle : undefined,
     documents: role === 'captain' ? documents : { photo: documents?.photo || '' },
@@ -646,7 +660,7 @@ app.post('/api/auth/register', (req, res) => {
   writeData(USERS_FILE, users);
 
   const wallets = loadFile(WALLETS_FILE);
-  wallets[`${role}s`].push({ accountId: phone, accountName: name, balance: 0, transactions: [] });
+  wallets[`${role}s`].push({ accountId: normalizedPhone, accountName: name, balance: 0, transactions: [] });
   writeData(WALLETS_FILE, wallets);
 
   res.status(201).json({ user: publicUser(user), requiresApproval: user.status === 'pending' });
@@ -654,8 +668,9 @@ app.post('/api/auth/register', (req, res) => {
 
 app.post('/api/auth/login', (req, res) => {
   const { role, phone, password } = req.body;
+  const normalizedPhone = normalizePhone(phone);
   const users = loadFile(USERS_FILE);
-  const user = users.users.find(u => u.phone === phone && u.role === role);
+  const user = users.users.find(u => samePhone(u.phone, normalizedPhone) && u.role === role);
   if (!user || user.status === 'deleted' || !isPasswordValid(String(password), user)) return res.status(401).json({ error: 'بيانات خاطئة' });
   if (user.status !== 'approved') return res.status(403).json({ error: 'الحساب غير مفعل' });
 
@@ -676,11 +691,11 @@ app.delete('/api/auth/account', (req, res) => {
   const users = loadFile(USERS_FILE);
   const account = users.users.find(item => item.id === user.id);
   if (!account) return res.status(404).json({ error: 'الحساب غير موجود' });
-  account.status = 'deleted';
-  account.deletedAt = new Date().toISOString();
+  account.status = 'archived';
+  account.archivedAt = new Date().toISOString();
   users.sessions = users.sessions.filter(session => session.userId !== user.id);
   writeData(USERS_FILE, users);
-  res.json({ ok: true, message: 'تم تعطيل الحساب وحذف جلساته. بقي سجل الرحلات محفوظًا.' });
+  res.json({ ok: true, message: 'تم إخفاء الحساب مع حفظ كامل بياناته لدى الإدارة. يمكن استرجاعه من غرفة التحكم.' });
 });
 
 app.patch('/api/captains/me/availability', (req, res) => {
@@ -753,7 +768,14 @@ app.post('/api/admin/users/:id/:action', (req, res) => {
   else if (action === 'unblock') user.status = 'approved';
   else if (action === 'archive') user.status = 'archived';
   else if (action === 'restore') user.status = 'approved';
-  else if (action === 'delete') users.users = users.users.filter(u => u.id !== id);
+  else if (action === 'delete') {
+    users.users = users.users.filter(u => u.id !== id);
+    users.sessions = users.sessions.filter(session => session.userId !== id);
+    const wallets = loadFile(WALLETS_FILE);
+    const roleKey = user.role === 'captain' ? 'captains' : 'customers';
+    wallets[roleKey] = (wallets[roleKey] || []).filter(account => account.accountId !== user.walletAccountId);
+    writeData(WALLETS_FILE, wallets);
+  }
   else return res.status(400).json({ error: 'إجراء غير معروف' });
   writeData(USERS_FILE, users);
   res.json({ ok: true });
@@ -791,7 +813,7 @@ app.post('/api/admin/captains/:id/:action', (req, res) => {
 app.get('/api/admin/users/:phone/history', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
   const users = loadFile(USERS_FILE);
-  const user = users.users.find(u => u.phone === req.params.phone);
+  const user = users.users.find(u => samePhone(u.phone, req.params.phone));
   if (!user) return res.status(404).json({ error: 'لا يوجد حساب بهذا الرقم' });
   const wallets = loadFile(WALLETS_FILE);
   const wallet = wallets[`${user.role}s`]?.find(a => a.accountId === user.walletAccountId) || { balance: 0, transactions: [] };
@@ -882,7 +904,8 @@ app.post('/api/wallets/credit', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
   const wallets = loadFile(WALLETS_FILE);
   const roleKey = req.body?.role === 'customer' ? 'customers' : 'captains';
-  const accountId = String(req.body?.accountId || req.body?.phone || '').trim();
+  const accountId = normalizePhone(req.body?.accountId || req.body?.phone);
+  if (!accountId) return res.status(400).json({ error: 'رقم الهاتف يجب أن يكون 9 أو 10 أرقام' });
   let acc = wallets[roleKey].find(a => a.accountId === accountId);
   if (!acc) {
     acc = { accountId, accountName: req.body?.accountName || accountId, balance: 0, transactions: [] };
@@ -909,7 +932,7 @@ app.post('/api/wallets/withdraw', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
   const wallets = loadFile(WALLETS_FILE);
   const roleKey = req.body?.role === 'customer' ? 'customers' : 'captains';
-  const acc = wallets[roleKey].find(a => a.accountId === String(req.body?.phone || '').trim());
+  const acc = wallets[roleKey].find(a => samePhone(a.accountId, req.body?.phone));
   if (!acc) return res.status(404).json({ error: 'الحساب غير موجود' });
   const amount = safeNumber(req.body?.amount, 0);
   if (amount <= 0 || amount > acc.balance) return res.status(400).json({ error: 'الرصيد غير كافٍ أو القيمة غير صحيحة' });
