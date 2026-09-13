@@ -679,6 +679,7 @@ app.post('/api/auth/login', (req, res) => {
   const users = loadFile(USERS_FILE);
   const user = users.users.find(u => samePhone(u.phone, normalizedPhone) && u.role === role);
   if (!user || user.status === 'deleted' || !isPasswordValid(String(password), user)) return res.status(401).json({ error: 'بيانات خاطئة' });
+  if (user.status === 'blocked') return res.status(403).json({ error: 'يرجى مراجعة الشركة لتفعيل حسابك' });
   if (user.status !== 'approved') return res.status(403).json({ error: 'الحساب غير مفعل' });
 
   if (user.role === 'captain' && user.available === undefined) user.available = true;
@@ -895,6 +896,12 @@ app.post('/api/promos/redeem', (req, res) => {
 app.get('/api/admin/support/tickets', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
   res.json(readSafe(SUPPORT_FILE).tickets);
+});
+
+app.get('/api/support/tickets', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
+  res.json(readSafe(SUPPORT_FILE).tickets.filter(ticket => ticket.userId === user.id));
 });
 
 app.post('/api/support/tickets', (req, res) => {

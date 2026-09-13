@@ -31,6 +31,7 @@ const els = {
   southFare_Maan: document.getElementById('southFare_Maan'),
   southFare_Aqaba: document.getElementById('southFare_Aqaba'),
   paymentMethods: document.getElementById('paymentMethods'),
+  supportWhatsApp: document.getElementById('supportWhatsApp'),
   adminKey: document.getElementById('adminKey'),
   saveBtn: document.getElementById('saveBtn'),
   refreshBtn: document.getElementById('refreshBtn'),
@@ -156,6 +157,7 @@ async function loadPricing() {
     els.southFare_Maan.value = south['معان'] ?? 0;
     els.southFare_Aqaba.value = south['العقبة'] ?? 0;
     renderPaymentMethods(data.paymentMethods || []);
+    els.supportWhatsApp.value = data.supportWhatsApp || '962790905611';
     els.meta.textContent = data.updatedAt
       ? `آخر تحديث: ${new Date(data.updatedAt).toLocaleString('ar-JO')} — بواسطة: ${data.updatedBy || '—'}`
       : '';
@@ -201,6 +203,7 @@ async function savePricing() {
       'العقبة': Number(els.southFare_Aqaba.value),
     },
     paymentMethods: readPaymentMethods(),
+    supportWhatsApp: els.supportWhatsApp.value.replace(/\D/g, ''),
     updatedBy: 'مسؤول غرفة التحكم',
   };
 
