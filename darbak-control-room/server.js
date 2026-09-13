@@ -634,7 +634,7 @@ app.post('/api/auth/register', (req, res) => {
   if (!['customer', 'captain'].includes(role) || !String(name || '').trim() || !normalizedPhone || String(password || '').length < 6) {
     return res.status(400).json({ error: 'أدخل الاسم ورقم هاتف من 9 أرقام أو 10 أرقام مع الصفر، وكلمة مرور من 6 أحرف أو أرقام على الأقل' });
   }
-  if (role === 'captain' && (!vehicle || !vehicle.carType || !vehicle.carNumber || !vehicle.plateNumber || !documents || Object.values(documents).some(value => !value))) {
+  if (role === 'captain' && (!vehicle || !vehicle.category || !vehicle.carType || !vehicle.carNumber || !vehicle.plateNumber || !documents || Object.values(documents).some(value => !value))) {
     return res.status(400).json({ error: 'بيانات الكابتن وصور الهوية والرخص والسيارة وعدم المحكومية مطلوبة' });
   }
   const users = loadFile(USERS_FILE);
@@ -663,7 +663,14 @@ app.post('/api/auth/register', (req, res) => {
   wallets[`${role}s`].push({ accountId: normalizedPhone, accountName: name, balance: 0, transactions: [] });
   writeData(WALLETS_FILE, wallets);
 
-  res.status(201).json({ user: publicUser(user), requiresApproval: user.status === 'pending' });
+  res.status(201).json({ user: publicUser(user), registrationId: id, requiresApproval: user.status === 'pending' });
+});
+
+app.get('/api/auth/registration-status/:id', (req, res) => {
+  const users = loadFile(USERS_FILE);
+  const user = users.users.find(item => item.id === req.params.id && item.role === 'captain');
+  if (!user) return res.status(404).json({ error: 'طلب التسجيل غير موجود' });
+  res.json({ status: user.status, name: user.name });
 });
 
 app.post('/api/auth/login', (req, res) => {
