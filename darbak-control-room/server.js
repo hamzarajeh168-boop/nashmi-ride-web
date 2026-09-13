@@ -274,10 +274,10 @@ app.post('/api/rides', (req, res) => {
       const vehicleType = serviceType === 'private' || serviceType === 'electric' ? 'private' : 'shared';
       const pricing = loadFile(PRICING_FILE);
       const requestedPrice = safeNumber(body.price, 0);
-      const price = requestedPrice > 0 ? requestedPrice : Math.max(
-        safeNumber(pricing.minFare, 0),
-        body.airportRequest ? safeNumber(pricing.governorateAirportFare, 0) : 0
-      );
+      const configuredFare = serviceType === 'jeep'
+        ? safeNumber(pricing.jeepFare, 0)
+        : body.airportRequest ? safeNumber(pricing.governorateAirportFare, 0) : 0;
+      const price = requestedPrice > 0 ? requestedPrice : Math.max(safeNumber(pricing.minFare, 0), configuredFare);
       const wallets = loadFile(WALLETS_FILE);
       const customerWallet = wallets.customers.find(account => account.accountId === user.walletAccountId);
       const walletBalance = safeNumber(customerWallet?.balance, 0);
@@ -332,7 +332,7 @@ function nextCaptainForRide(ride, rides) {
     if (busy.has(captain.id) || attempted.has(captain.id)) return false;
     if (ride.targetCaptainId && ride.targetCaptainId !== captain.id) return false;
     const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'];
-    if (ride.serviceType === 'jeep' && (captain.vehicle?.bodyType !== 'jeep' || Number(captain.vehicle?.capacity || 0) < 7)) return false;
+    if (ride.serviceType === 'jeep' && (captain.vehicle?.bodyType !== 'jeep' || Number(captain.vehicle?.capacity || 0) < 1 || Number(captain.vehicle?.capacity || 0) > 6)) return false;
     if (ride.serviceType && !services.includes(ride.serviceType) && !(ride.serviceType === 'shared_intra' && services.includes('shared')) && !(ride.serviceType === 'shared_intercity' && services.includes('shared'))) return false;
     return true;
   });
@@ -635,7 +635,7 @@ app.post('/api/auth/register', (req, res) => {
   if (!['customer', 'captain'].includes(role) || !String(name || '').trim() || !normalizedPhone || String(password || '').length < 6) {
     return res.status(400).json({ error: 'أدخل الاسم ورقم هاتف من 9 أرقام أو 10 أرقام مع الصفر، وكلمة مرور من 6 أحرف أو أرقام على الأقل' });
   }
-  if (role === 'captain' && (!vehicle || typeof vehicle.electric !== 'boolean' || !vehicle.carType || !vehicle.bodyType || !Number.isFinite(Number(vehicle.capacity)) || Number(vehicle.capacity) < 1 || !vehicle.carNumber || !vehicle.plateNumber || !documents || Object.values(documents).some(value => !value))) {
+  if (role === 'captain' && (!vehicle || typeof vehicle.electric !== 'boolean' || !vehicle.carType || !vehicle.bodyType || !Number.isFinite(Number(vehicle.capacity)) || Number(vehicle.capacity) < 1 || Number(vehicle.capacity) > 6 || !vehicle.carNumber || !vehicle.plateNumber || !documents || Object.values(documents).some(value => !value))) {
     return res.status(400).json({ error: 'بيانات الكابتن وصور الهوية والرخص والسيارة وعدم المحكومية مطلوبة' });
   }
   const users = loadFile(USERS_FILE);
@@ -654,7 +654,7 @@ app.post('/api/auth/register', (req, res) => {
     walletAccountId: normalizedPhone,
     available: role === 'captain' ? true : undefined,
     services: role === 'captain'
-      ? ['private', 'shared_intra', 'shared_intercity', 'electric', 'airport', ...(vehicle?.bodyType === 'jeep' && Number(vehicle?.capacity) >= 7 ? ['jeep'] : [])]
+      ? ['private', 'shared_intra', 'shared_intercity', 'electric', 'airport', ...(vehicle?.bodyType === 'jeep' && Number(vehicle?.capacity) >= 1 && Number(vehicle?.capacity) <= 6 ? ['jeep'] : [])]
       : undefined,
     vehicle: role === 'captain' ? vehicle : undefined,
     documents: role === 'captain' ? documents : { photo: documents?.photo || '' },
@@ -720,7 +720,7 @@ app.patch('/api/captains/me/availability', (req, res) => {
   captain.available = available;
   if (Array.isArray(req.body?.services)) {
     const allowedServices = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity', 'jeep'];
-    captain.services = [...new Set(req.body.services.filter(service => allowedServices.includes(service)).filter(service => service !== 'jeep' || (captain.vehicle?.bodyType === 'jeep' && Number(captain.vehicle?.capacity || 0) >= 7)) )];
+    captain.services = [...new Set(req.body.services.filter(service => allowedServices.includes(service)).filter(service => service !== 'jeep' || (captain.vehicle?.bodyType === 'jeep' && Number(captain.vehicle?.capacity || 0) >= 1 && Number(captain.vehicle?.capacity || 0) <= 6)) )];
   }
   if (req.body?.location && Number.isFinite(Number(req.body.location.lat)) && Number.isFinite(Number(req.body.location.lng))) {
     captain.location = {

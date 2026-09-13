@@ -26,6 +26,7 @@ const els = {
   capacityFare4: document.getElementById('capacityFare4'),
   capacityFare5: document.getElementById('capacityFare5'),
   capacityFare7: document.getElementById('capacityFare7'),
+  jeepFare: document.getElementById('jeepFare'),
   southFare_Karak: document.getElementById('southFare_Karak'),
   southFare_Tafilah: document.getElementById('southFare_Tafilah'),
   southFare_Maan: document.getElementById('southFare_Maan'),
@@ -151,6 +152,7 @@ async function loadPricing() {
     els.capacityFare4.value = data.capacityFares?.['4'] ?? 20;
     els.capacityFare5.value = data.capacityFares?.['5'] ?? 24;
     els.capacityFare7.value = data.capacityFares?.['7'] ?? 32;
+    els.jeepFare.value = data.jeepFare ?? 35;
     const south = data.southFares || {};
     els.southFare_Karak.value = south['الكرك'] ?? 0;
     els.southFare_Tafilah.value = south['الطفيلة'] ?? 0;
@@ -196,6 +198,7 @@ async function savePricing() {
       '5': Number(els.capacityFare5.value),
       '7': Number(els.capacityFare7.value),
     },
+    jeepFare: Number(els.jeepFare.value),
     southFares: {
       'الكرك': Number(els.southFare_Karak.value),
       'الطفيلة': Number(els.southFare_Tafilah.value),
@@ -317,7 +320,7 @@ function renderCaptains(captains) {
         ${captain.documents?.photo ? `<img src="${captain.documents.photo}" class="captain-avatar" />` : ''}
         <strong>${captain.name}</strong><span>${captain.phone} · ${captain.status}</span>
       </div>
-      <p class="meta"><strong>السيارة:</strong> ${captain.vehicle?.carType || '—'} · رقم: ${captain.vehicle?.carNumber || '—'}</p>
+      <p class="meta"><strong>السيارة:</strong> ${captain.vehicle?.carType || '—'} · ${captain.vehicle?.bodyType === 'jeep' ? 'جيب' : 'سيارة عادية'} · ${captain.vehicle?.capacity || '—'} ركاب · رقم: ${captain.vehicle?.carNumber || '—'}</p>
       <div class="document-grid">
         ${Object.keys(docLabels).map((key) => `<label class="document-upload"><span>${docLabels[key]}</span><input type="file" accept="image/*" data-doc="${key}" /><img src="${captain.documents?.[key] || ''}" data-preview="${key}" /></label>`).join('')}
       </div>
