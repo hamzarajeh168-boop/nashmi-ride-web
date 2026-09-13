@@ -3,7 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { syncRides, loadRides } = require('../db');
+const { syncRides, loadRides, persistState, loadPersistentState } = require('../db');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -17,6 +17,15 @@ const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 const RIDES_FILE = path.join(__dirname, 'data', 'rides.json');
 const PROMOS_FILE = path.join(__dirname, 'data', 'promos.json');
 const SUPPORT_FILE = path.join(__dirname, 'data', 'support.json');
+const DATA_FILES = {
+  pricing: PRICING_FILE,
+  wallets: WALLETS_FILE,
+  topups: TOPUPS_FILE,
+  users: USERS_FILE,
+  rides: RIDES_FILE,
+  promos: PROMOS_FILE,
+  support: SUPPORT_FILE,
+};
 
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
@@ -53,6 +62,10 @@ const writeData = (file, data) => {
   fs.renameSync(tmp, file); // كتابة آمنة: ما بتعطش ملف نصّاً لو انقطعت بنص الكتابة
   if (file === RIDES_FILE && Array.isArray(data.rides)) {
     syncRides(data.rides).catch(error => console.error('[database rides sync]', error));
+  }
+  const dataKey = Object.entries(DATA_FILES).find(([, filePath]) => filePath === file)?.[0];
+  if (dataKey) {
+    persistState(dataKey, data).catch(error => console.error(`[database ${dataKey} sync]`, error));
   }
 };
 
@@ -178,7 +191,16 @@ app.get('/api/wallets/me', (req, res) => {
   if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
   const wallets = loadFile(WALLETS_FILE);
   const account = wallets[`${user.role}s`].find(a => a.accountId === user.walletAccountId);
-  res.json(account || { balance: 0, transactions: [] });
+  const rides = loadFile(RIDES_FILE).rides || [];
+  const completed = rides.filter(ride => ride.captainId === user.id && ride.status === 'completed');
+  res.json({
+    ...(account || { balance: 0, transactions: [] }),
+    stats: {
+      ordersValue: round2(completed.reduce((sum, ride) => sum + safeNumber(ride.price, 0), 0)),
+      kilometers: round2(completed.reduce((sum, ride) => sum + safeNumber(ride.distanceKm, 0), 0)),
+      onlineMinutes: Math.round(completed.reduce((sum, ride) => sum + (ride.onlineMinutes || 0), 0)),
+    },
+  });
 });
 
 app.post('/api/wallets/topup-request', (req, res) => {
@@ -522,8 +544,6 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
   const wallets = loadFile(WALLETS_FILE);
   const captainAcc = wallets.captains.find(a => a.accountId === user.walletAccountId);
   if (captainAcc) {
-    captainAcc.balance = round2(captainAcc.balance + price);
-    captainAcc.transactions.unshift({ type: 'credit', amount: price, note: `أجرة الرحلة ${trip.tripNumber}`, createdAt: trip.completedAt });
     if (commission > 0) {
       captainAcc.balance = round2(captainAcc.balance - commission);
       captainAcc.transactions.unshift({ type: 'debit', amount: -commission, note: `عمولة الشركة للرحلة ${trip.tripNumber}`, createdAt: trip.completedAt });
@@ -636,12 +656,22 @@ app.patch('/api/captains/me/availability', (req, res) => {
 
 async function startServer() {
   try {
+    const snapshots = {};
+    for (const [dataKey, file] of Object.entries(DATA_FILES)) {
+      snapshots[dataKey] = loadFile(file);
+    }
     const databaseRides = await loadRides();
     if (databaseRides && databaseRides.length) {
-      writeData(RIDES_FILE, { rides: databaseRides });
-    } else {
-      const localRides = loadFile(RIDES_FILE);
-      await syncRides(localRides.rides || []);
+      const localRides = snapshots.rides.rides || [];
+      const ridesByNumber = new Map(localRides.map(ride => [ride.tripNumber, ride]));
+      for (const ride of databaseRides) ridesByNumber.set(ride.tripNumber, ride);
+      snapshots.rides = { rides: [...ridesByNumber.values()] };
+    }
+    const hydrated = await loadPersistentState(snapshots);
+    for (const [dataKey, file] of Object.entries(DATA_FILES)) {
+      if (hydrated[dataKey]) {
+        writeData(file, hydrated[dataKey]);
+      }
     }
   } catch (error) {
     console.error('[database startup]', error);
