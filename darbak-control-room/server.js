@@ -77,7 +77,19 @@ function loadFile(file) {
 
 // شكل افتراضي آمن لكل ملف — يمنع undefined.users / undefined.captains
 const SCHEMAS = {
-  [PRICING_FILE]: { baseFare: 0, perKmRate: 0, waitMinuteRate: 0, minFare: 0, currency: 'د.أ', companyCommissionRate: 0 },
+  [PRICING_FILE]: {
+    baseFare: 0,
+    perKmRate: 0,
+    waitMinuteRate: 0,
+    minFare: 0,
+    currency: 'د.أ',
+    companyCommissionRate: 0,
+    paymentMethods: [
+      { id: 'orange_money', label: 'Orange Money', account: '0790905611', enabled: true },
+      { id: 'zain_cash', label: 'Zain Cash', account: '0790905611', enabled: true },
+      { id: 'card', label: 'Visa / بطاقة', account: 'شراء رصيد', enabled: true },
+    ],
+  },
   [WALLETS_FILE]: { captains: [], customers: [], transactions: [] },
   [TOPUPS_FILE]: { requests: [] },
   [USERS_FILE]: { users: [], sessions: [] },
@@ -208,7 +220,8 @@ app.post('/api/wallets/topup-request', (req, res) => {
   if (!user || user.role !== 'captain') return res.status(401).json({ error: 'يلزم دخول الكابتن' });
   const amount = Number(req.body?.amount);
   const method = String(req.body?.method || '');
-  if (!['orange_money', 'zain_cash'].includes(method) || !Number.isFinite(amount) || amount < 1 || amount > 500) {
+  const paymentMethod = (loadFile(PRICING_FILE).paymentMethods || []).find(item => item.id === method && item.enabled !== false);
+  if (!paymentMethod || !Number.isFinite(amount) || amount < 1 || amount > 500) {
     return res.status(400).json({ error: 'اختر طريقة صحيحة وأدخل مبلغًا بين 1 و500 دينار' });
   }
   const topups = loadFile(TOPUPS_FILE);
@@ -643,7 +656,7 @@ app.post('/api/auth/login', (req, res) => {
   const { role, phone, password } = req.body;
   const users = loadFile(USERS_FILE);
   const user = users.users.find(u => u.phone === phone && u.role === role);
-  if (!user || !isPasswordValid(String(password), user)) return res.status(401).json({ error: 'بيانات خاطئة' });
+  if (!user || user.status === 'deleted' || !isPasswordValid(String(password), user)) return res.status(401).json({ error: 'بيانات خاطئة' });
   if (user.status !== 'approved') return res.status(403).json({ error: 'الحساب غير مفعل' });
 
   if (user.role === 'captain' && user.available === undefined) user.available = true;
@@ -652,6 +665,22 @@ app.post('/api/auth/login', (req, res) => {
   users.sessions.push({ token, userId: user.id, createdAt: new Date().toISOString() });
   writeData(USERS_FILE, users);
   res.json({ token, user: publicUser(user) });
+});
+
+app.delete('/api/auth/account', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
+  if (String(req.body?.confirmation || '') !== 'DELETE') {
+    return res.status(400).json({ error: 'أرسل تأكيد DELETE لحذف الحساب' });
+  }
+  const users = loadFile(USERS_FILE);
+  const account = users.users.find(item => item.id === user.id);
+  if (!account) return res.status(404).json({ error: 'الحساب غير موجود' });
+  account.status = 'deleted';
+  account.deletedAt = new Date().toISOString();
+  users.sessions = users.sessions.filter(session => session.userId !== user.id);
+  writeData(USERS_FILE, users);
+  res.json({ ok: true, message: 'تم تعطيل الحساب وحذف جلساته. بقي سجل الرحلات محفوظًا.' });
 });
 
 app.patch('/api/captains/me/availability', (req, res) => {

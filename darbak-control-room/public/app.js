@@ -30,6 +30,7 @@ const els = {
   southFare_Tafilah: document.getElementById('southFare_Tafilah'),
   southFare_Maan: document.getElementById('southFare_Maan'),
   southFare_Aqaba: document.getElementById('southFare_Aqaba'),
+  paymentMethods: document.getElementById('paymentMethods'),
   adminKey: document.getElementById('adminKey'),
   saveBtn: document.getElementById('saveBtn'),
   refreshBtn: document.getElementById('refreshBtn'),
@@ -102,6 +103,25 @@ function updatePreview() {
     `الإجمالي المتوقع للراكب: ${total.toFixed(2)} ${currency}`;
 }
 
+function renderPaymentMethods(methods = []) {
+  els.paymentMethods.innerHTML = methods.map((method, index) => `
+    <div class="grid payment-method-row" data-payment-index="${index}">
+      <label class="field"><span>اسم الطريقة</span><input data-payment-field="label" value="${method.label || ''}"></label>
+      <label class="field"><span>رقم التحويل / الوصف</span><input data-payment-field="account" value="${method.account || ''}"></label>
+      <label class="field"><span>الحالة</span><select data-payment-field="enabled"><option value="true" ${method.enabled !== false ? 'selected' : ''}>مفعّلة</option><option value="false" ${method.enabled === false ? 'selected' : ''}>موقوفة</option></select></label>
+      <input type="hidden" data-payment-field="id" value="${method.id || `method_${index}`}">
+    </div>`).join('');
+}
+
+function readPaymentMethods() {
+  return [...els.paymentMethods.querySelectorAll('[data-payment-index]')].map((row) => ({
+    id: row.querySelector('[data-payment-field="id"]').value.trim(),
+    label: row.querySelector('[data-payment-field="label"]').value.trim(),
+    account: row.querySelector('[data-payment-field="account"]').value.trim(),
+    enabled: row.querySelector('[data-payment-field="enabled"]').value === 'true',
+  })).filter((method) => method.id && method.label);
+}
+
 async function loadPricing() {
   try {
     const res = await fetch('/api/pricing');
@@ -135,6 +155,7 @@ async function loadPricing() {
     els.southFare_Tafilah.value = south['الطفيلة'] ?? 0;
     els.southFare_Maan.value = south['معان'] ?? 0;
     els.southFare_Aqaba.value = south['العقبة'] ?? 0;
+    renderPaymentMethods(data.paymentMethods || []);
     els.meta.textContent = data.updatedAt
       ? `آخر تحديث: ${new Date(data.updatedAt).toLocaleString('ar-JO')} — بواسطة: ${data.updatedBy || '—'}`
       : '';
@@ -179,6 +200,7 @@ async function savePricing() {
       'معان': Number(els.southFare_Maan.value),
       'العقبة': Number(els.southFare_Aqaba.value),
     },
+    paymentMethods: readPaymentMethods(),
     updatedBy: 'مسؤول غرفة التحكم',
   };
 
