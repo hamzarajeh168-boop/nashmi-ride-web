@@ -12,6 +12,7 @@ const ADMIN_KEY = process.env.ADMIN_KEY || 'darbak-2026';
 // مسارات ملفات البيانات
 const PRICING_FILE = path.join(__dirname, 'data', 'pricing.json');
 const WALLETS_FILE = path.join(__dirname, 'data', 'wallets.json');
+const TOPUPS_FILE = path.join(__dirname, 'data', 'topups.json');
 const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 const RIDES_FILE = path.join(__dirname, 'data', 'rides.json');
 const PROMOS_FILE = path.join(__dirname, 'data', 'promos.json');
@@ -65,6 +66,7 @@ function loadFile(file) {
 const SCHEMAS = {
   [PRICING_FILE]: { baseFare: 0, perKmRate: 0, waitMinuteRate: 0, minFare: 0, currency: 'د.أ', companyCommissionRate: 0 },
   [WALLETS_FILE]: { captains: [], customers: [], transactions: [] },
+  [TOPUPS_FILE]: { requests: [] },
   [USERS_FILE]: { users: [], sessions: [] },
   [RIDES_FILE]: { rides: [] },
   [PROMOS_FILE]: { promos: [] },
@@ -122,6 +124,7 @@ function publicUser(user) {
     status: user.status,
     walletAccountId: user.walletAccountId,
     available: user.role === 'captain' ? user.available !== false : undefined,
+    services: user.role === 'captain' ? (user.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity']) : undefined,
     vehicle: user.vehicle,
     documents: user.documents,
   };
@@ -178,6 +181,31 @@ app.get('/api/wallets/me', (req, res) => {
   res.json(account || { balance: 0, transactions: [] });
 });
 
+app.post('/api/wallets/topup-request', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user || user.role !== 'captain') return res.status(401).json({ error: 'يلزم دخول الكابتن' });
+  const amount = Number(req.body?.amount);
+  const method = String(req.body?.method || '');
+  if (!['orange_money', 'zain_cash'].includes(method) || !Number.isFinite(amount) || amount < 1 || amount > 500) {
+    return res.status(400).json({ error: 'اختر طريقة صحيحة وأدخل مبلغًا بين 1 و500 دينار' });
+  }
+  const topups = loadFile(TOPUPS_FILE);
+  const request = {
+    id: crypto.randomUUID(),
+    captainId: user.id,
+    accountId: user.walletAccountId,
+    captainName: user.name,
+    phone: user.phone,
+    amount: round2(amount),
+    method,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  };
+  topups.requests.unshift(request);
+  writeData(TOPUPS_FILE, topups);
+  res.status(201).json(request);
+});
+
 // الرحلات
 app.post('/api/rides', (req, res) => {
   const user = getAuthenticatedUser(req);
@@ -192,7 +220,10 @@ app.post('/api/rides', (req, res) => {
       if (!Array.isArray(rides.rides)) rides.rides = [];
       const body = req.body && typeof req.body === 'object' ? req.body : {};
       const rideType = body.rideType === 'intercity' ? 'intercity' : 'intra';
-      const vehicleType = body.vehicleType === 'private' ? 'private' : 'shared';
+      const serviceType = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'].includes(body.serviceType)
+        ? body.serviceType
+        : (body.airportRequest ? 'airport' : body.vehicleType === 'private' ? 'private' : rideType === 'intercity' ? 'shared_intercity' : 'shared_intra');
+      const vehicleType = serviceType === 'private' || serviceType === 'electric' ? 'private' : 'shared';
       const pricing = loadFile(PRICING_FILE);
       const requestedPrice = safeNumber(body.price, 0);
       const price = requestedPrice > 0 ? requestedPrice : Math.max(
@@ -215,6 +246,7 @@ app.post('/api/rides', (req, res) => {
       const trip = {
         ...body,
         rideType,
+        serviceType,
         vehicleType,
         airportRequest: Boolean(body.airportRequest),
         seats: Math.max(1, Math.floor(safeNumber(body.seats, 1))),
@@ -224,7 +256,8 @@ app.post('/api/rides', (req, res) => {
         price,
         walletDebit,
         remainingDue: round2(Math.max(0, price - walletDebit)),
-        status: 'searching', createdAt: new Date().toISOString()
+        status: 'searching', createdAt: new Date().toISOString(),
+        offerCaptainId: null, offerExpiresAt: null, offerAttemptedCaptainIds: []
       };
       // body ما بيقدرش يطغى على الحقول المهمة (نترتيب المفاتيح بعد ...body)
       rides.rides.unshift(trip);
@@ -238,21 +271,69 @@ app.post('/api/rides', (req, res) => {
   });
 });
 
-// الحاجات المتاحة للكابتن — بدون تكرار نفس الرحلة، ومش ديما نفس النتيجة
+const OFFER_WINDOW_MS = 10000;
+
+function nextCaptainForRide(ride, rides) {
+  const users = loadFile(USERS_FILE);
+  const busy = new Set(rides.rides
+    .filter(item => ['assigned', 'started'].includes(item.status))
+    .map(item => item.captainId));
+  const attempted = new Set(ride.offerAttemptedCaptainIds || []);
+  const candidates = users.users.filter(captain => {
+    if (captain.role !== 'captain' || captain.status !== 'approved' || captain.available === false) return false;
+    if (busy.has(captain.id) || attempted.has(captain.id)) return false;
+    if (ride.targetCaptainId && ride.targetCaptainId !== captain.id) return false;
+    const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'];
+    if (ride.serviceType && !services.includes(ride.serviceType) && !(ride.serviceType === 'shared_intra' && services.includes('shared')) && !(ride.serviceType === 'shared_intercity' && services.includes('shared'))) return false;
+    return true;
+  });
+  const pickup = ride.pickupLocation;
+  if (pickup && Number.isFinite(Number(pickup.lat)) && Number.isFinite(Number(pickup.lng))) {
+    const distance = captain => {
+      const location = captain.location;
+      if (!location || !Number.isFinite(Number(location.lat)) || !Number.isFinite(Number(location.lng))) return Number.POSITIVE_INFINITY;
+      const lat1 = Number(pickup.lat) * Math.PI / 180;
+      const lat2 = Number(location.lat) * Math.PI / 180;
+      const dLat = (Number(location.lat) - Number(pickup.lat)) * Math.PI / 180;
+      const dLng = (Number(location.lng) - Number(pickup.lng)) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+      return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+    candidates.sort((a, b) => distance(a) - distance(b));
+  }
+  return candidates[0] || null;
+}
+
+function refreshRideOffer(ride, rides) {
+  const now = Date.now();
+  if (ride.status !== 'searching') return false;
+  if (ride.offerCaptainId && ride.offerExpiresAt && new Date(ride.offerExpiresAt).getTime() > now) return false;
+  if (ride.offerCaptainId) {
+    ride.offerAttemptedCaptainIds = [...new Set([...(ride.offerAttemptedCaptainIds || []), ride.offerCaptainId])];
+  }
+  const captain = nextCaptainForRide(ride, rides);
+  ride.offerCaptainId = captain?.id || null;
+  ride.offerExpiresAt = captain ? new Date(now + OFFER_WINDOW_MS).toISOString() : null;
+  ride.offerAssignedAt = captain ? new Date(now).toISOString() : null;
+  return true;
+}
+
+// الطلبات المسبقة: كل رحلة تُعرض لكابتن واحد فقط لمدة 10 ثوانٍ ثم تنتقل تلقائيًا.
 app.get('/api/rides/available', (req, res) => {
   const user = getAuthenticatedUser(req);
   if (!user) return res.status(401).json({ error: 'يلزم الدخول' });
   const rides = loadFile(RIDES_FILE);
   if (!Array.isArray(rides.rides)) rides.rides = [];
-  const seen = new Set();
+  let changed = false;
   const available = rides.rides.filter(r => {
-      if (r.status !== 'searching' || seen.has(r.tripNumber)) return false;
-      seen.add(r.tripNumber);
+      if (r.status !== 'searching') return false;
       if (user.role === 'captain') {
-        return !r.targetCaptainId || r.targetCaptainId === user.id;
+        changed = refreshRideOffer(r, rides) || changed;
+        return r.offerCaptainId === user.id;
       }
       return true;
   });
+  if (changed) writeData(RIDES_FILE, rides);
   res.json(available.map(ride => enrichRideForUser(ride, user)));
 });
 
@@ -262,8 +343,14 @@ app.get('/api/captains/available', (req, res) => {
   const users = loadFile(USERS_FILE);
   const rides = loadFile(RIDES_FILE).rides;
   const busy = new Set(rides.filter(ride => ['assigned', 'started'].includes(ride.status)).map(ride => ride.captainId));
+  const requestedService = String(req.query.service || '');
   const captains = users.users
       .filter(captain => captain.role === 'captain' && captain.status === 'approved' && captain.available !== false && !busy.has(captain.id))
+      .filter(captain => {
+        if (!requestedService) return true;
+        const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'];
+        return services.includes(requestedService) || (requestedService.startsWith('shared_') && services.includes('shared'));
+      })
       .map(captain => ({
         id: captain.id,
         name: captain.name,
@@ -271,6 +358,7 @@ app.get('/api/captains/available', (req, res) => {
         available: captain.available !== false,
         vehicle: captain.vehicle,
         photo: captain.documents?.photo || '',
+        services: captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'],
       }));
   res.json(captains);
 });
@@ -301,8 +389,9 @@ app.post('/api/rides/:tripNumber/assign', (req, res) => {
       const rides = loadFile(RIDES_FILE);
       const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
       if (!trip || trip.status !== 'searching') return res.status(409).json({ error: 'غير متاحة — ممكن حجزها كابتن ثاني' });
-      if (trip.targetCaptainId && trip.targetCaptainId !== user.id) {
-        return res.status(403).json({ error: 'هذا الطلب موجّه إلى كابتن آخر' });
+      if (trip.targetCaptainId && trip.targetCaptainId !== user.id) return res.status(403).json({ error: 'هذا الطلب موجّه إلى كابتن آخر' });
+      if (trip.offerCaptainId !== user.id || !trip.offerExpiresAt || new Date(trip.offerExpiresAt).getTime() <= Date.now()) {
+        return res.status(409).json({ error: 'انتهت مهلة الطلب، انتظر انتقاله لكابتن آخر' });
       }
       const captainWallets = loadFile(WALLETS_FILE);
       const captainWallet = captainWallets.captains.find(account => account.accountId === user.walletAccountId);
@@ -350,8 +439,12 @@ app.post('/api/rides/:tripNumber/reject', (req, res) => {
       if (trip.status !== 'searching') return res.status(409).json({ error: 'لا يمكن رفض طلب تم قبوله بالفعل' });
       if (trip.targetCaptainId && trip.targetCaptainId !== user.id) return res.status(403).json({ error: 'هذا الطلب موجّه إلى كابتن آخر' });
       trip.targetCaptainId = null;
+      trip.offerCaptainId = null;
+      trip.offerExpiresAt = null;
+      trip.offerAttemptedCaptainIds = [...new Set([...(trip.offerAttemptedCaptainIds || []), user.id])];
       trip.rejectedBy = user.id;
       trip.rejectedAt = new Date().toISOString();
+      refreshRideOffer(trip, rides);
       writeData(RIDES_FILE, rides);
       res.json({ ok: true, trip });
     } catch (err) {
@@ -429,8 +522,12 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
   const wallets = loadFile(WALLETS_FILE);
   const captainAcc = wallets.captains.find(a => a.accountId === user.walletAccountId);
   if (captainAcc) {
-    captainAcc.balance += trip.captainNet;
-    captainAcc.transactions.unshift({ type: 'credit', amount: trip.captainNet, note: `رحلة ${trip.tripNumber}`, createdAt: trip.completedAt });
+    captainAcc.balance = round2(captainAcc.balance + price);
+    captainAcc.transactions.unshift({ type: 'credit', amount: price, note: `أجرة الرحلة ${trip.tripNumber}`, createdAt: trip.completedAt });
+    if (commission > 0) {
+      captainAcc.balance = round2(captainAcc.balance - commission);
+      captainAcc.transactions.unshift({ type: 'debit', amount: -commission, note: `عمولة الشركة للرحلة ${trip.tripNumber}`, createdAt: trip.completedAt });
+    }
     writeData(WALLETS_FILE, wallets);
   }
   res.json(trip);
@@ -522,6 +619,17 @@ app.patch('/api/captains/me/availability', (req, res) => {
   const captain = users.users.find(u => u.id === user.id && u.role === 'captain');
   if (!captain) return res.status(404).json({ error: 'الكابتن غير موجود' });
   captain.available = available;
+  if (Array.isArray(req.body?.services)) {
+    const allowedServices = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'];
+    captain.services = [...new Set(req.body.services.filter(service => allowedServices.includes(service)))];
+  }
+  if (req.body?.location && Number.isFinite(Number(req.body.location.lat)) && Number.isFinite(Number(req.body.location.lng))) {
+    captain.location = {
+      lat: Number(req.body.location.lat),
+      lng: Number(req.body.location.lng),
+      updatedAt: new Date().toISOString(),
+    };
+  }
   writeData(USERS_FILE, users);
   res.json({ ok: true, available: captain.available !== false, user: publicUser(captain) });
 });
