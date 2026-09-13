@@ -576,6 +576,29 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
       res.status(201).json(trip.messages[trip.messages.length - 1]);
     });
   });
+
+  app.post('/api/rides/:tripNumber/rating', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
+    const rating = Number(req.body?.rating);
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'التقييم يجب أن يكون من 1 إلى 5' });
+    }
+    withLock('rides', () => {
+      const rides = loadFile(RIDES_FILE);
+      const trip = rides.rides.find(item => item.tripNumber === req.params.tripNumber);
+      if (!trip || trip.status !== 'completed') return res.status(404).json({ error: 'الرحلة المكتملة غير موجودة' });
+      const isCustomer = trip.customerId === user.id;
+      const isCaptain = trip.captainId === user.id && user.role === 'captain';
+      if (!isCustomer && !isCaptain) return res.status(403).json({ error: 'غير مسموح' });
+      const field = isCustomer ? 'customerRating' : 'captainRating';
+      if (trip[field]) return res.status(409).json({ error: 'تم إرسال التقييم مسبقًا' });
+      trip[field] = rating;
+      trip[`${field}At`] = new Date().toISOString();
+      writeData(RIDES_FILE, rides);
+      res.status(201).json({ ok: true, rating });
+    });
+  });
 });
 
 // الهوية (Auth)
