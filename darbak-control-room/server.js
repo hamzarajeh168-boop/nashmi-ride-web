@@ -245,9 +245,11 @@ function enrichRideForUser(ride, user) {
       vehicle: captain.vehicle,
       photo: captain.documents?.photo || '',
     };
+    if (['assigned', 'started'].includes(ride.status)) result.startCode = ride.startCode;
   }
   if (user.role === 'captain' && customer) {
     result.customer = { name: customer.name, phone: customer.phone };
+    delete result.startCode;
   }
   return result;
 }
@@ -396,6 +398,7 @@ app.post('/api/rides', (req, res) => {
         distanceKm: distanceKm === null ? undefined : round2(distanceKm),
         walletDebit,
         remainingDue: round2(Math.max(0, price - walletDebit)),
+        startCode: String(crypto.randomInt(1000, 10000)),
         status: 'searching', createdAt: new Date().toISOString(),
         offerCaptainId: null, offerExpiresAt: null, offerAttemptedCaptainIds: []
       };
@@ -617,6 +620,7 @@ app.post('/api/rides/:tripNumber/start', (req, res) => {
     const rides = loadFile(RIDES_FILE);
     const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
     if (!trip || trip.captainId !== user.id || trip.status !== 'assigned' || !trip.arrivedAt) return res.status(409).json({ error: 'سجّل الوصول إلى العميل أولًا' });
+    if (String(req.body?.startCode || '') !== String(trip.startCode || '')) return res.status(403).json({ error: 'رمز بدء الرحلة غير صحيح، خذه من العميل' });
     trip.status = 'started'; trip.startedAt = new Date().toISOString();
     writeData(RIDES_FILE, rides);
     res.json(trip);
