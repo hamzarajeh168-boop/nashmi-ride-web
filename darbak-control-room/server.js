@@ -376,7 +376,7 @@ app.post('/api/rides', (req, res) => {
         tripNumber: `NR-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
         customerId: user.id, customerName: user.name, customerPhone: user.phone,
         targetCaptainId: body.targetCaptainId || null,
-        price: requestedPrice > 0 ? requestedPrice : estimatedPrice,
+        price,
         distanceKm: distanceKm === null ? undefined : round2(distanceKm),
         walletDebit,
         remainingDue: round2(Math.max(0, price - walletDebit)),
