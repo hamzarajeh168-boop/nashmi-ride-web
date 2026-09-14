@@ -3,7 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { syncRides, loadRides, persistState, loadPersistentState } = require('../db');
+const { syncRides, loadRides, persistState, loadPersistentState, hasPersistentStore } = require('../db');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -828,6 +828,9 @@ app.patch('/api/captains/me/availability', (req, res) => {
 
 async function startServer() {
   try {
+    if (process.env.NODE_ENV === 'production' && !hasPersistentStore) {
+      throw new Error('DATABASE_URL is required in production to preserve accounts and application data');
+    }
     const snapshots = {};
     for (const [dataKey, file] of Object.entries(DATA_FILES)) {
       snapshots[dataKey] = loadFile(file);
@@ -847,6 +850,10 @@ async function startServer() {
     }
   } catch (error) {
     console.error('[database startup]', error);
+    if (process.env.NODE_ENV === 'production') {
+      process.exitCode = 1;
+      return;
+    }
   }
   app.listen(PORT, () => console.log(`Darbak Server on ${PORT}`));
 }
