@@ -152,6 +152,12 @@ function samePhone(left, right) {
   return Boolean(normalizedLeft && normalizedLeft === normalizedRight);
 }
 
+function isJeepElectricEligible(vehicle) {
+  return vehicle?.bodyType === 'jeep'
+    && vehicle?.electric === true
+    && Number(vehicle?.capacity || 0) > 4;
+}
+
 function publicUser(user) {
   return {
     id: user.id,
@@ -162,7 +168,11 @@ function publicUser(user) {
     status: user.status,
     walletAccountId: user.walletAccountId,
     available: user.role === 'captain' ? user.available !== false : undefined,
-    services: user.role === 'captain' ? (user.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity']) : undefined,
+    services: user.role === 'captain'
+      ? (user.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'])
+        .filter(service => service !== 'electric' || user.vehicle?.electric === true)
+        .filter(service => service !== 'jeep_electric' || isJeepElectricEligible(user.vehicle))
+      : undefined,
     vehicle: user.vehicle,
     documents: user.documents,
   };
@@ -199,6 +209,12 @@ const isAdmin = (req) => req.header('x-admin-key') === ADMIN_KEY;
 
 // المسارات (Routes)
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+
+app.get('/api/auth/me', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user || user.status !== 'approved') return res.status(401).json({ error: 'الجلسة غير صالحة' });
+  res.json({ user: publicUser(user) });
+});
 
 // التسعيرة
 app.get('/api/pricing', (req, res) => res.json(loadFile(PRICING_FILE)));
@@ -268,7 +284,7 @@ app.post('/api/rides', (req, res) => {
       if (!Array.isArray(rides.rides)) rides.rides = [];
       const body = req.body && typeof req.body === 'object' ? req.body : {};
       const rideType = body.rideType === 'intercity' ? 'intercity' : 'intra';
-      const serviceType = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity', 'jeep'].includes(body.serviceType)
+      const serviceType = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity', 'jeep', 'jeep_electric'].includes(body.serviceType)
         ? body.serviceType
         : (body.airportRequest ? 'airport' : body.vehicleType === 'private' ? 'private' : rideType === 'intercity' ? 'shared_intercity' : 'shared_intra');
       const vehicleType = serviceType === 'private' || serviceType === 'electric' ? 'private' : 'shared';
@@ -333,6 +349,8 @@ function nextCaptainForRide(ride, rides) {
     if (ride.targetCaptainId && ride.targetCaptainId !== captain.id) return false;
     const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'];
     if (ride.serviceType === 'jeep' && (captain.vehicle?.bodyType !== 'jeep' || Number(captain.vehicle?.capacity || 0) < 1 || Number(captain.vehicle?.capacity || 0) > 6)) return false;
+    if (ride.serviceType === 'jeep_electric' && !isJeepElectricEligible(captain.vehicle)) return false;
+    if (ride.serviceType === 'electric' && captain.vehicle?.electric !== true) return false;
     if (ride.serviceType && !services.includes(ride.serviceType) && !(ride.serviceType === 'shared_intra' && services.includes('shared')) && !(ride.serviceType === 'shared_intercity' && services.includes('shared'))) return false;
     return true;
   });
@@ -398,6 +416,8 @@ app.get('/api/captains/available', (req, res) => {
       .filter(captain => {
         if (!requestedService) return true;
         const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'];
+        if (requestedService === 'electric' && captain.vehicle?.electric !== true) return false;
+        if (requestedService === 'jeep_electric' && !isJeepElectricEligible(captain.vehicle)) return false;
         return services.includes(requestedService) || (requestedService.startsWith('shared_') && services.includes('shared'));
       })
       .map(captain => ({
@@ -407,7 +427,9 @@ app.get('/api/captains/available', (req, res) => {
         available: captain.available !== false,
         vehicle: captain.vehicle,
         photo: captain.documents?.photo || '',
-        services: captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'],
+        services: (captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'])
+          .filter(service => service !== 'electric' || captain.vehicle?.electric === true)
+          .filter(service => service !== 'jeep_electric' || isJeepElectricEligible(captain.vehicle)),
       }));
   res.json(captains);
 });
@@ -654,7 +676,9 @@ app.post('/api/auth/register', (req, res) => {
     walletAccountId: normalizedPhone,
     available: role === 'captain' ? true : undefined,
     services: role === 'captain'
-      ? ['private', 'shared_intra', 'shared_intercity', 'electric', 'airport', ...(vehicle?.bodyType === 'jeep' && Number(vehicle?.capacity) >= 1 && Number(vehicle?.capacity) <= 6 ? ['jeep'] : [])]
+      ? ['private', 'shared_intra', 'shared_intercity', ...(vehicle?.electric === true ? ['electric'] : []), 'airport',
+        ...(vehicle?.bodyType === 'jeep' && Number(vehicle?.capacity) >= 1 && Number(vehicle?.capacity) <= 6 ? ['jeep'] : []),
+        ...(isJeepElectricEligible(vehicle) ? ['jeep_electric'] : [])]
       : undefined,
     vehicle: role === 'captain' ? vehicle : undefined,
     documents: role === 'captain' ? documents : { photo: documents?.photo || '' },
@@ -719,8 +743,12 @@ app.patch('/api/captains/me/availability', (req, res) => {
   if (!captain) return res.status(404).json({ error: 'الكابتن غير موجود' });
   captain.available = available;
   if (Array.isArray(req.body?.services)) {
-    const allowedServices = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity', 'jeep'];
-    captain.services = [...new Set(req.body.services.filter(service => allowedServices.includes(service)).filter(service => service !== 'jeep' || (captain.vehicle?.bodyType === 'jeep' && Number(captain.vehicle?.capacity || 0) >= 1 && Number(captain.vehicle?.capacity || 0) <= 6)) )];
+      const allowedServices = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity', 'jeep', 'jeep_electric'];
+    captain.services = [...new Set(req.body.services
+      .filter(service => allowedServices.includes(service))
+      .filter(service => service !== 'electric' || captain.vehicle?.electric === true)
+      .filter(service => service !== 'jeep' || (captain.vehicle?.bodyType === 'jeep' && Number(captain.vehicle?.capacity || 0) >= 1 && Number(captain.vehicle?.capacity || 0) <= 6)))];
+      captain.services = captain.services.filter(service => service !== 'jeep_electric' || isJeepElectricEligible(captain.vehicle));
   }
   if (req.body?.location && Number.isFinite(Number(req.body.location.lat)) && Number.isFinite(Number(req.body.location.lng))) {
     captain.location = {
