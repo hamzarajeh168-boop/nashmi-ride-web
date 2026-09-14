@@ -245,9 +245,11 @@ function enrichRideForUser(ride, user) {
       vehicle: captain.vehicle,
       photo: captain.documents?.photo || '',
     };
+    if (['assigned', 'started'].includes(ride.status)) result.startCode = ride.startCode;
   }
   if (user.role === 'captain' && customer) {
     result.customer = { name: customer.name, phone: customer.phone };
+    delete result.startCode;
   }
   return result;
 }
@@ -396,6 +398,7 @@ app.post('/api/rides', (req, res) => {
         distanceKm: distanceKm === null ? undefined : round2(distanceKm),
         walletDebit,
         remainingDue: round2(Math.max(0, price - walletDebit)),
+        startCode: String(crypto.randomInt(1000, 10000)),
         status: 'searching', createdAt: new Date().toISOString(),
         offerCaptainId: null, offerExpiresAt: null, offerAttemptedCaptainIds: []
       };
@@ -413,6 +416,12 @@ app.post('/api/rides', (req, res) => {
 });
 
 const OFFER_WINDOW_MS = 10000;
+const CAPTAIN_ONLINE_WINDOW_MS = 60000;
+
+function isCaptainOnline(captain) {
+  const updatedAt = captain.location?.updatedAt ? new Date(captain.location.updatedAt).getTime() : 0;
+  return Number.isFinite(updatedAt) && Date.now() - updatedAt <= CAPTAIN_ONLINE_WINDOW_MS;
+}
 
 function nextCaptainForRide(ride, rides) {
   const users = loadFile(USERS_FILE);
@@ -421,7 +430,7 @@ function nextCaptainForRide(ride, rides) {
     .map(item => item.captainId));
   const attempted = new Set(ride.offerAttemptedCaptainIds || []);
   const candidates = users.users.filter(captain => {
-    if (captain.role !== 'captain' || captain.status !== 'approved' || captain.available === false) return false;
+    if (captain.role !== 'captain' || captain.status !== 'approved' || captain.available === false || !isCaptainOnline(captain)) return false;
     if (busy.has(captain.id) || attempted.has(captain.id)) return false;
     if (ride.targetCaptainId && ride.targetCaptainId !== captain.id) return false;
     const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra'];
@@ -489,7 +498,7 @@ app.get('/api/captains/available', (req, res) => {
   const busy = new Set(rides.filter(ride => ['assigned', 'started'].includes(ride.status)).map(ride => ride.captainId));
   const requestedService = String(req.query.service || '');
   const captains = users.users
-      .filter(captain => captain.role === 'captain' && captain.status === 'approved' && captain.available !== false && !busy.has(captain.id))
+      .filter(captain => captain.role === 'captain' && captain.status === 'approved' && captain.available !== false && isCaptainOnline(captain) && !busy.has(captain.id))
       .filter(captain => {
         if (!requestedService) return true;
         const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra'];
@@ -632,6 +641,7 @@ app.post('/api/rides/:tripNumber/start', (req, res) => {
     const rides = loadFile(RIDES_FILE);
     const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
     if (!trip || trip.captainId !== user.id || trip.status !== 'assigned' || !trip.arrivedAt) return res.status(409).json({ error: 'سجّل الوصول إلى العميل أولًا' });
+    if (String(req.body?.startCode || '') !== String(trip.startCode || '')) return res.status(403).json({ error: 'رمز بدء الرحلة غير صحيح، خذه من العميل' });
     trip.status = 'started'; trip.startedAt = new Date().toISOString();
     writeData(RIDES_FILE, rides);
     res.json(trip);
@@ -666,6 +676,17 @@ app.post('/api/rides/:tripNumber/cancel', (req, res) => {
     if (!['searching', 'assigned', 'started'].includes(trip.status)) return res.status(409).json({ error: 'ما بتقدرش تلغيها' });
     trip.status = 'cancelled'; trip.cancelledAt = new Date().toISOString();
     trip.cancelledBy = user.role;
+    if (trip.captainId) {
+      const activeTrips = rides.rides.filter(item => item.tripNumber !== trip.tripNumber && item.captainId === trip.captainId && ['assigned', 'started'].includes(item.status));
+      if (!activeTrips.length) {
+        const users = loadFile(USERS_FILE);
+        const captain = users.users.find(item => item.id === trip.captainId && item.role === 'captain');
+        if (captain) {
+          captain.available = true;
+          writeData(USERS_FILE, users);
+        }
+      }
+    }
     writeData(RIDES_FILE, rides);
     res.json(trip);
   });
