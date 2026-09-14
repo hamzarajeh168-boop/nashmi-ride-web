@@ -354,11 +354,13 @@ app.post('/api/rides', (req, res) => {
       const basePrice = Math.max(safeNumber(pricing.minFare, 0), configuredFare);
       const price = requestedPrice > 0 ? requestedPrice : (distanceKm === null ? basePrice : estimateRidePrice(pricing, serviceType, distanceKm));
       const wallets = loadFile(WALLETS_FILE);
+      if (!Array.isArray(wallets.customers)) wallets.customers = [];
       const customerWallet = wallets.customers.find(account => account.accountId === user.walletAccountId);
       const walletBalance = safeNumber(customerWallet?.balance, 0);
       const walletDebit = walletBalance > 0 ? round2(Math.min(walletBalance, price)) : 0;
       if (customerWallet && walletDebit > 0) {
         customerWallet.balance = round2(walletBalance - walletDebit);
+        if (!Array.isArray(customerWallet.transactions)) customerWallet.transactions = [];
         customerWallet.transactions.unshift({
           type: 'debit',
           amount: -walletDebit,
@@ -390,7 +392,7 @@ app.post('/api/rides', (req, res) => {
       res.status(201).json(trip);
     } catch (err) {
       console.error('[create ride]', err);
-      res.status(500).json({ error: 'صار خطأ بإنشاء الرحلة' });
+      if (!res.headersSent) res.status(500).json({ error: 'تعذر إنشاء الرحلة، حاول مرة ثانية' });
     }
   });
 });
