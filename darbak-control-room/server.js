@@ -645,6 +645,17 @@ app.post('/api/rides/:tripNumber/cancel', (req, res) => {
     if (!['searching', 'assigned', 'started'].includes(trip.status)) return res.status(409).json({ error: 'ما بتقدرش تلغيها' });
     trip.status = 'cancelled'; trip.cancelledAt = new Date().toISOString();
     trip.cancelledBy = user.role;
+    if (trip.captainId) {
+      const activeTrips = rides.rides.filter(item => item.tripNumber !== trip.tripNumber && item.captainId === trip.captainId && ['assigned', 'started'].includes(item.status));
+      if (!activeTrips.length) {
+        const users = loadFile(USERS_FILE);
+        const captain = users.users.find(item => item.id === trip.captainId && item.role === 'captain');
+        if (captain) {
+          captain.available = true;
+          writeData(USERS_FILE, users);
+        }
+      }
+    }
     writeData(RIDES_FILE, rides);
     res.json(trip);
   });
