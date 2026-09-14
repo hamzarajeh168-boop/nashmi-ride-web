@@ -526,13 +526,15 @@ app.get('/api/rides/mine', (req, res) => {
   if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
   const rides = loadFile(RIDES_FILE);
   if (!Array.isArray(rides.rides)) rides.rides = [];
-  const mine = rides.rides.filter(r => user.role === 'customer' ? r.customerId === user.id && ['searching', 'assigned', 'started', 'completed'].includes(r.status) : r.captainId === user.id && ['assigned', 'started'].includes(r.status));
+  let mine = rides.rides.filter(r => user.role === 'customer' ? r.customerId === user.id && ['searching', 'assigned', 'started', 'completed'].includes(r.status) : r.captainId === user.id && ['assigned', 'started'].includes(r.status));
   // الرحلة المكتملة تبقى ظاهرة عند الكابتن حتى يوافق العميل (عشان ما ينسى قيمة الطلب)
   if (user.role === 'captain') {
     const acknowledged = new Set(rides.rides.filter(r => r.captainId === user.id && r.status === 'completed' && r.customerAcknowledgedAt).map(r => r.tripNumber));
     const recentCompleted = rides.rides.filter(r => r.captainId === user.id && r.status === 'completed' && !acknowledged.has(r.tripNumber));
     return res.json([...mine, ...recentCompleted].map(ride => enrichRideForUser(ride, user)));
   }
+  // عند العميل: بعد موافقته على القيمة تختفي الرحلة من الصفحة الرئيسية — تبقى بس في سجل الرحلات
+  mine = mine.filter(r => !(r.status === 'completed' && r.customerAcknowledgedAt));
   res.json(mine.map(ride => enrichRideForUser(ride, user)));
 });
 
