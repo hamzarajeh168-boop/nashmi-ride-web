@@ -35,7 +35,18 @@
       },
       "createdAt": "2026-09-05T11:57:05.589Z",
       "reviewedAt": "2026-09-06T08:49:06.262Z",
-      "available": false
+      "available": true,
+      "services": [
+        "private",
+        "shared_intra",
+        "shared_intercity",
+        "airport"
+      ],
+      "location": {
+        "lat": 31.964518458381043,
+        "lng": 35.90521972272262,
+        "updatedAt": "2026-09-14T07:57:47.783Z"
+      }
     },
     {
       "id": "3808c8ef-347d-4641-8083-331af7dabe39",
@@ -212,6 +223,21 @@
       "token": "4898680c0edc8d4c9413a0d03c55af2a07485535c3ff9fc0885c1092c56465db",
       "userId": "b998fd8e-6a82-47bd-b602-1fd31ffca8b6",
       "createdAt": "2026-09-09T12:36:00.842Z"
+    },
+    {
+      "token": "8490f9982323b241ef1e134ce7fd14fcf68030ae39a1c91f8f3d8c7029bc0602",
+      "userId": "3808c8ef-347d-4641-8083-331af7dabe39",
+      "createdAt": "2026-09-13T13:51:55.182Z"
+    },
+    {
+      "token": "23a58c48f6a670eab6aea01662af8ccabf4b9c3bf478d590174730fbf98393f5",
+      "userId": "78571b4c-91ea-4eee-98ce-209427e7eb15",
+      "createdAt": "2026-09-14T07:51:56.283Z"
+    },
+    {
+      "token": "15081e09553c0374a5607e6976934d42334000ad3463bf30153b41ada74e3336",
+      "userId": "78571b4c-91ea-4eee-98ce-209427e7eb15",
+      "createdAt": "2026-09-14T08:51:37.235Z"
     }
   ]
 }

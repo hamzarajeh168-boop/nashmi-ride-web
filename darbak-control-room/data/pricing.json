@@ -33,5 +33,25 @@
   },
   "updatedBy": "مسؤول غرفة التحكم",
   "updatedAt": "2026-09-09T11:28:09.246Z",
-  "currency": "د.أ"
+  "currency": "د.أ",
+  "paymentMethods": [
+    {
+      "id": "orange_money",
+      "label": "Orange Money",
+      "account": "0790905611",
+      "enabled": true
+    },
+    {
+      "id": "zain_cash",
+      "label": "Zain Cash",
+      "account": "0790905611",
+      "enabled": true
+    },
+    {
+      "id": "card",
+      "label": "Visa / بطاقة",
+      "account": "شراء رصيد",
+      "enabled": true
+    }
+  ]
 }
