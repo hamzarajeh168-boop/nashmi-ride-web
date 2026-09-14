@@ -35,7 +35,18 @@
       },
       "createdAt": "2026-09-05T11:57:05.589Z",
       "reviewedAt": "2026-09-06T08:49:06.262Z",
-      "available": false
+      "available": true,
+      "services": [
+        "private",
+        "shared_intra",
+        "shared_intercity",
+        "airport"
+      ],
+      "location": {
+        "lat": 31.964518458381043,
+        "lng": 35.90521972272262,
+        "updatedAt": "2026-09-14T07:57:47.783Z"
+      }
     },
     {
       "id": "3808c8ef-347d-4641-8083-331af7dabe39",
@@ -130,6 +141,67 @@
         "license": "data:image/png;base64,EEE"
       },
       "createdAt": "2026-09-09T12:36:00.693Z"
+    },
+    {
+      "id": "357060b2-81cb-43fd-8a1e-ec564152a66c",
+      "role": "customer",
+      "name": "AckC",
+      "phone": "0077700001",
+      "passwordSalt": "2ffc3bc3b23ed123e9927efa8fb58225",
+      "passwordHash": "e2aca339d4eec5956383b48660481d9326323cf80a5e353a8d00892b58f8fe40e7a882a8bb0c65bae976036bb16aff4ef9c890e7db5f3fa069a30115589850da",
+      "status": "approved",
+      "walletAccountId": "0077700001",
+      "documents": {
+        "photo": ""
+      },
+      "createdAt": "2026-09-14T14:05:44.880Z"
+    },
+    {
+      "id": "8898566d-6be1-4a94-99f9-bb36a5a9a34a",
+      "role": "captain",
+      "name": "AckK",
+      "phone": "0077700002",
+      "passwordSalt": "1ad4bba60373f32853cfde7380d7900d",
+      "passwordHash": "fcba1e5313a1afb12a8f8d6ef17b0606821f881ce68f44b1cd4a7fee590376df471a3b5f0afa96c57e1b50bf8a6d8f73ae7fdd2cc1cb68875bb89ea3776af79a",
+      "status": "approved",
+      "walletAccountId": "0077700002",
+      "available": true,
+      "services": [
+        "private",
+        "shared_intra",
+        "airport"
+      ],
+      "vehicle": {
+        "electric": false,
+        "carType": "????",
+        "bodyType": "sedan",
+        "capacity": 4,
+        "carNumber": "12345",
+        "plateNumber": "ABC-123"
+      },
+      "documents": {
+        "photo": "x",
+        "license": "x",
+        "drivingLicense": "x",
+        "identity": "x",
+        "clearance": "x",
+        "car": "x"
+      },
+      "createdAt": "2026-09-14T14:05:44.981Z"
+    },
+    {
+      "id": "bfa92b2c-3d43-458c-b90f-92228a5ae5b2",
+      "role": "customer",
+      "name": "???? ?????",
+      "phone": "0791112223",
+      "passwordSalt": "bd0255b4a462f5f529ba50f8eeafc34b",
+      "passwordHash": "b0c9d9bf875d8b7012fb88bde2523cc261e782edebbcbeb5383091ecbc552a3584a9231e997f6319714ac4e29f8c27ae723009a26d186c253bb42b26a029a71c",
+      "status": "approved",
+      "walletAccountId": "0791112223",
+      "documents": {
+        "photo": ""
+      },
+      "createdAt": "2026-09-14T14:10:16.168Z"
     }
   ],
   "sessions": [
@@ -212,6 +284,36 @@
       "token": "4898680c0edc8d4c9413a0d03c55af2a07485535c3ff9fc0885c1092c56465db",
       "userId": "b998fd8e-6a82-47bd-b602-1fd31ffca8b6",
       "createdAt": "2026-09-09T12:36:00.842Z"
+    },
+    {
+      "token": "8490f9982323b241ef1e134ce7fd14fcf68030ae39a1c91f8f3d8c7029bc0602",
+      "userId": "3808c8ef-347d-4641-8083-331af7dabe39",
+      "createdAt": "2026-09-13T13:51:55.182Z"
+    },
+    {
+      "token": "23a58c48f6a670eab6aea01662af8ccabf4b9c3bf478d590174730fbf98393f5",
+      "userId": "78571b4c-91ea-4eee-98ce-209427e7eb15",
+      "createdAt": "2026-09-14T07:51:56.283Z"
+    },
+    {
+      "token": "15081e09553c0374a5607e6976934d42334000ad3463bf30153b41ada74e3336",
+      "userId": "78571b4c-91ea-4eee-98ce-209427e7eb15",
+      "createdAt": "2026-09-14T08:51:37.235Z"
+    },
+    {
+      "token": "352bf03a38c405bb18601d9727a245935b5da484430f564d41271b65fba23574",
+      "userId": "357060b2-81cb-43fd-8a1e-ec564152a66c",
+      "createdAt": "2026-09-14T14:05:51.881Z"
+    },
+    {
+      "token": "2a5b439e794d8d48b85d838d3d1a3a0d4255d6aa957a535d84144103117519b3",
+      "userId": "357060b2-81cb-43fd-8a1e-ec564152a66c",
+      "createdAt": "2026-09-14T14:07:07.541Z"
+    },
+    {
+      "token": "3cfc23a5a56fa43335fc13ff792cc3beca6dde9191fa4ccb9fd7cfe75f9f2222",
+      "userId": "8898566d-6be1-4a94-99f9-bb36a5a9a34a",
+      "createdAt": "2026-09-14T14:07:07.585Z"
     }
   ]
 }

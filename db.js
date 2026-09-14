@@ -83,4 +83,11 @@ async function loadRides() {
   return result.rows.map(row => row.data);
 }
 
-module.exports = { pool, syncRides, loadRides, persistState, loadPersistentState };
+module.exports = {
+  pool,
+  hasPersistentStore: Boolean(pool),
+  syncRides,
+  loadRides,
+  persistState,
+  loadPersistentState,
+};

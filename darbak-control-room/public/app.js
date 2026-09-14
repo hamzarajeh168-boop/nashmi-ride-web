@@ -366,7 +366,9 @@ async function searchCustomer() {
   const roleLabel = data.user.role === 'captain' ? 'كابتن' : 'عميل';
   const transactions = (data.wallet.transactions || []).slice(0, 10).map((item) => `<div class="wallet-row"><span>${item.note || item.type}</span><strong>${Number(item.amount).toFixed(2)} د.أ</strong></div>`).join('');
   const rides = (data.rides || []).map((ride) => `<div class="wallet-row"><span>${ride.tripNumber || '—'} · ${ride.from || '—'} ← ${ride.to || '—'}<small>${ride.status || ''} · ${ride.createdAt ? new Date(ride.createdAt).toLocaleString('ar-JO') : ''}${data.user.role === 'captain' && ride.customerName ? ` · العميل: ${ride.customerName}` : ''}${data.user.role === 'customer' && ride.captainName ? ` · الكابتن: ${ride.captainName}` : ''}</small></span><strong>${Number(ride.price || 0).toFixed(2)} د.أ</strong></div>`).join('');
-  els.customerResult.innerHTML = `<div class="captain-review"><div class="captain-review-head"><strong>${data.user.name}</strong><span>${roleLabel} · ${data.user.phone} · ${data.user.status}</span></div><p class="meta">رقم الحساب: ${data.user.accountId || data.user.walletAccountId}</p><div class="preview">الرصيد الحالي: ${Number(data.wallet.balance || 0).toFixed(2)} د.أ</div><p class="meta"><strong>سجل الرحلات (${(data.rides || []).length}):</strong></p><div class="wallet-list">${rides || '<p class="meta">لا توجد رحلات.</p>'}</div><p class="meta"><strong>سجل المحفظة:</strong></p><div class="wallet-list">${transactions || '<p class="meta">لا توجد عمليات.</p>'}</div></div>`;
+  const vehicle = data.user.vehicle;
+  const profileDetails = `${vehicle ? `<p class="meta"><strong>المركبة:</strong> ${vehicle.carType || '—'} · ${vehicle.plateNumber || '—'} · السعة ${vehicle.capacity || '—'} ركاب</p>` : ''}${data.user.services?.length ? `<p class="meta"><strong>الخدمات:</strong> ${data.user.services.join('، ')}</p>` : ''}${data.user.location ? `<p class="meta"><strong>آخر موقع:</strong> ${Number(data.user.location.lat).toFixed(5)}, ${Number(data.user.location.lng).toFixed(5)}</p>` : ''}${data.user.documents ? `<p class="meta"><strong>الملفات:</strong> ${Object.entries(data.user.documents).filter(([, value]) => value).map(([key]) => key).join('، ') || 'لا توجد ملفات'}</p>` : ''}`;
+  els.customerResult.innerHTML = `<div class="captain-review"><div class="captain-review-head"><strong>${data.user.name}</strong><span>${roleLabel} · ${data.user.phone} · ${data.user.status}</span></div><p class="meta">رقم الحساب: ${data.user.accountId || data.user.walletAccountId}</p>${profileDetails}<div class="preview">الرصيد الحالي: ${Number(data.wallet.balance || 0).toFixed(2)} د.أ</div><p class="meta"><strong>سجل الرحلات (${(data.rides || []).length}):</strong></p><div class="wallet-list">${rides || '<p class="meta">لا توجد رحلات.</p>'}</div><p class="meta"><strong>سجل المحفظة:</strong></p><div class="wallet-list">${transactions || '<p class="meta">لا توجد عمليات.</p>'}</div></div>`;
   showCustomerMsg('تم العثور على الحساب', 'ok');
 }
 
@@ -392,7 +394,10 @@ async function searchTrip() {
   const res = await fetch(`/api/admin/rides/${encodeURIComponent(tripNumber)}`, { headers: { 'x-admin-key': key } });
   const trip = await res.json();
   if (!res.ok) return showTripMsg(trip.error || 'الرحلة غير موجودة');
-  els.tripResult.innerHTML = `<div class="captain-review"><div class="captain-review-head"><strong>${trip.tripNumber}</strong><span>${trip.status}</span></div><p>من: ${trip.from}</p><p>إلى: ${trip.to}</p><p>العميل: ${trip.customerName} · ${trip.customerPhone}</p><p>الكابتن: ${trip.captainName || 'لم يتم تعيين كابتن'}${trip.captainPhone ? ` · ${trip.captainPhone}` : ''}</p><div class="preview">الأجرة: ${Number(trip.price).toFixed(2)} د.أ · المقاعد: ${trip.seats}</div></div>`;
+  const profileCard = (profile, label) => profile
+    ? `<div class="preview"><strong>${label}</strong><br>${profile.name || '—'} · ${profile.phone || '—'}<br>الحالة: ${profile.status || '—'}${profile.role === 'captain' ? `<br>المركبة: ${profile.vehicle?.carType || '—'} · ${profile.vehicle?.plateNumber || '—'} · السعة ${profile.vehicle?.capacity || '—'} ركاب<br>الخدمات: ${(profile.services || []).join('، ') || '—'}` : ''}${profile.location ? `<br>آخر موقع: ${Number(profile.location.lat).toFixed(5)}, ${Number(profile.location.lng).toFixed(5)}` : ''}</div>`
+    : `<div class="preview"><strong>${label}</strong><br>غير معيّن</div>`;
+  els.tripResult.innerHTML = `<div class="captain-review"><div class="captain-review-head"><strong>${trip.tripNumber}</strong><span>${trip.status}</span></div><p>من: ${trip.from || '—'}</p><p>إلى: ${trip.to || '—'}</p>${profileCard(trip.customerProfile, 'معلومات العميل')}${profileCard(trip.captainProfile, 'معلومات الكابتن')}<div class="preview">الأجرة: ${Number(trip.price || 0).toFixed(2)} د.أ · المقاعد: ${trip.seats || 1}</div></div>`;
   showTripMsg('تم تحميل بيانات الرحلة', 'ok');
 }
 
@@ -403,7 +408,7 @@ async function loadAdminRides() {
   const rides = await res.json();
   if (!res.ok) return showAdminRidesMsg(rides.error || 'تعذّر تحميل سجل الرحلات');
   els.adminRidesList.innerHTML = rides.length
-    ? rides.map((ride) => `<div class="wallet-row"><span><strong>${ride.tripNumber}</strong><small>${ride.customerName || '—'} · ${ride.customerPhone || '—'}${ride.captainName ? ` · الكابتن: ${ride.captainName} (${ride.captainPhone || '—'})` : ''}<br>${ride.from || '—'} ← ${ride.to || 'الوصول غير محدد'}</small></span><strong>${ride.status}</strong></div>`).join('')
+    ? rides.map((ride) => `<div class="wallet-row"><span><strong>${ride.tripNumber}</strong><small>${ride.customerProfile?.name || ride.customerName || '—'} · ${ride.customerProfile?.phone || ride.customerPhone || '—'}${ride.captainProfile ? ` · الكابتن: ${ride.captainProfile.name} (${ride.captainProfile.phone || '—'})` : ''}<br>${ride.from || '—'} ← ${ride.to || 'الوصول غير محدد'}<br>العميل: ${ride.customerProfile?.status || '—'} · الكابتن: ${ride.captainProfile?.status || 'غير معيّن'}</small></span><strong>${ride.status}</strong></div>`).join('')
     : '<p class="meta">لا توجد رحلات.</p>';
   showAdminRidesMsg(`تم تحميل ${rides.length} رحلة`, 'ok');
 }
@@ -431,7 +436,7 @@ function renderUsers(users) {
   els.usersList.querySelectorAll('[data-user-id]').forEach((button) => button.addEventListener('click', async () => {
     if (button.dataset.userAction === 'reject' && !confirm('رفض طلب تسجيل هذا الكابتن؟')) return;
     if (button.dataset.userAction === 'archive' && !confirm('أرشفة هذا الحساب؟ يمكن استرجاعه لاحقًا.')) return;
-    if (button.dataset.userAction === 'delete' && !confirm('هل أنت متأكد من حذف هذا الحساب نهائيًا؟')) return;
+    if (button.dataset.userAction === 'delete' && !confirm('سيتم أرشفة الحساب مع حفظ بياناته وسجله، هل تريد المتابعة؟')) return;
     await fetch(`/api/admin/users/${button.dataset.userId}/${button.dataset.userAction}`, { method: 'POST', headers: { 'x-admin-key': els.adminKey.value.trim() } });
     loadUsers();
   }));

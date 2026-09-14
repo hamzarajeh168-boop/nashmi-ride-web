@@ -1,3 +1,31 @@
 {
-  "rides": []
+  "rides": [
+    {
+      "pickupLat": 31.95,
+      "pickupLng": 35.91,
+      "dropoffLat": 31.96,
+      "dropoffLng": 35.92,
+      "rideType": "intra",
+      "serviceType": "shared_intra",
+      "vehicleType": "shared",
+      "airportRequest": false,
+      "seats": 1,
+      "tripNumber": "NR-MU1BHH04-17A855",
+      "customerId": "357060b2-81cb-43fd-8a1e-ec564152a66c",
+      "customerName": "AckC",
+      "customerPhone": "0077700001",
+      "targetCaptainId": null,
+      "price": 1,
+      "walletDebit": 0,
+      "remainingDue": 1,
+      "status": "searching",
+      "createdAt": "2026-09-14T14:07:17.332Z",
+      "offerCaptainId": "8fee9552-fc9a-4b54-b54b-f5366757dd50",
+      "offerExpiresAt": "2026-09-14T14:09:20.686Z",
+      "offerAttemptedCaptainIds": [
+        "78571b4c-91ea-4eee-98ce-209427e7eb15"
+      ],
+      "offerAssignedAt": "2026-09-14T14:09:10.686Z"
+    }
+  ]
 }

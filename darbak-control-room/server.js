@@ -3,20 +3,21 @@ const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { syncRides, loadRides, persistState, loadPersistentState } = require('../db');
+const { syncRides, loadRides, persistState, loadPersistentState, hasPersistentStore } = require('../db');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 const ADMIN_KEY = process.env.ADMIN_KEY || 'darbak-2026';
 
 // مسارات ملفات البيانات
-const PRICING_FILE = path.join(__dirname, 'data', 'pricing.json');
-const WALLETS_FILE = path.join(__dirname, 'data', 'wallets.json');
-const TOPUPS_FILE = path.join(__dirname, 'data', 'topups.json');
-const USERS_FILE = path.join(__dirname, 'data', 'users.json');
-const RIDES_FILE = path.join(__dirname, 'data', 'rides.json');
-const PROMOS_FILE = path.join(__dirname, 'data', 'promos.json');
-const SUPPORT_FILE = path.join(__dirname, 'data', 'support.json');
+const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'nashmi-data') : path.join(__dirname, 'data');
+const PRICING_FILE = path.join(DATA_DIR, 'pricing.json');
+const WALLETS_FILE = path.join(DATA_DIR, 'wallets.json');
+const TOPUPS_FILE = path.join(DATA_DIR, 'topups.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const RIDES_FILE = path.join(DATA_DIR, 'rides.json');
+const PROMOS_FILE = path.join(DATA_DIR, 'promos.json');
+const SUPPORT_FILE = path.join(DATA_DIR, 'support.json');
 const DATA_FILES = {
   pricing: PRICING_FILE,
   wallets: WALLETS_FILE,
@@ -52,7 +53,13 @@ const readData = (file, fallback) => {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
     return parsed && typeof parsed === 'object' ? parsed : { ...fallback };
   } catch {
-    return fallback ? { ...fallback } : {};
+    try {
+      const bundledFile = path.join(__dirname, 'data', path.basename(file));
+      const parsed = JSON.parse(fs.readFileSync(bundledFile, 'utf-8'));
+      return parsed && typeof parsed === 'object' ? parsed : (fallback ? { ...fallback } : {});
+    } catch {
+      return fallback ? { ...fallback } : {};
+    }
   }
 };
 const writeData = (file, data) => {
@@ -116,6 +123,32 @@ const safeNumber = (value, fallback = 0) => {
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
+function distanceBetweenLocations(from, to) {
+  if (!from || !to) return null;
+  const lat1 = safeNumber(from.lat, NaN);
+  const lng1 = safeNumber(from.lng, NaN);
+  const lat2 = safeNumber(to.lat, NaN);
+  const lng2 = safeNumber(to.lng, NaN);
+  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) return null;
+  const radians = Math.PI / 180;
+  const a = Math.sin((lat2 - lat1) * radians / 2) ** 2
+    + Math.cos(lat1 * radians) * Math.cos(lat2 * radians) * Math.sin((lng2 - lng1) * radians / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function estimateRidePrice(pricing, serviceType, distanceKm) {
+  const fixedFare = serviceType === 'jeep'
+    ? safeNumber(pricing.jeepFare, 0)
+    : serviceType === 'airport'
+      ? safeNumber(pricing.governorateAirportFare, 0)
+      : 0;
+  const fareConfig = serviceType === 'private' || serviceType === 'electric'
+    ? (pricing.privateCarFare || {})
+    : pricing;
+  const distanceFare = safeNumber(fareConfig.baseFare, 0) + safeNumber(fareConfig.perKmRate, 0) * distanceKm;
+  return round2(Math.max(safeNumber(pricing.minFare, 0), fixedFare, distanceFare));
+}
+
 // قفل بسيط لمنع تضارب الكتابة بين الطلبات المتزامنة — مع معالجة أخطاء بدل ما يعلّق الطلب
 const locks = new Map();
 function withLock(key, fn) {
@@ -169,12 +202,34 @@ function publicUser(user) {
     walletAccountId: user.walletAccountId,
     available: user.role === 'captain' ? user.available !== false : undefined,
     services: user.role === 'captain'
-      ? (user.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'])
+      ? (user.services || ['private', 'shared', 'electric', 'airport', 'shared_intra'])
         .filter(service => service !== 'electric' || user.vehicle?.electric === true)
+        .filter(service => service !== 'shared_intercity')
         .filter(service => service !== 'jeep_electric' || isJeepElectricEligible(user.vehicle))
       : undefined,
     vehicle: user.vehicle,
     documents: user.documents,
+  };
+}
+
+function adminUserProfile(user) {
+  if (!user) return null;
+  return {
+    ...publicUser(user),
+    createdAt: user.createdAt,
+    reviewedAt: user.reviewedAt,
+    location: user.location || null,
+  };
+}
+
+function enrichRideForAdmin(ride) {
+  const users = loadFile(USERS_FILE);
+  const customer = users.users.find(item => item.id === ride.customerId);
+  const captain = users.users.find(item => item.id === ride.captainId);
+  return {
+    ...ride,
+    customerProfile: adminUserProfile(customer),
+    captainProfile: adminUserProfile(captain),
   };
 }
 
@@ -218,6 +273,16 @@ app.get('/api/auth/me', (req, res) => {
 
 // التسعيرة
 app.get('/api/pricing', (req, res) => res.json(loadFile(PRICING_FILE)));
+
+app.post('/api/rides/estimate', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user || user.role !== 'customer') return res.status(401).json({ error: 'يلزم دخول العميل' });
+  const distanceKm = distanceBetweenLocations(req.body?.pickupLocation, req.body?.destinationLocation);
+  if (distanceKm === null) return res.status(400).json({ error: 'أرسل إحداثيات الانطلاق والوجهة' });
+  const serviceType = String(req.body?.serviceType || 'private');
+  const price = estimateRidePrice(loadFile(PRICING_FILE), serviceType, distanceKm);
+  res.json({ distanceKm: round2(distanceKm), price, currency: loadFile(PRICING_FILE).currency || 'د.أ' });
+});
 
 app.put('/api/pricing', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
@@ -274,6 +339,9 @@ app.post('/api/wallets/topup-request', (req, res) => {
 app.post('/api/rides', (req, res) => {
   const user = getAuthenticatedUser(req);
   if (!user || user.role !== 'customer') return res.status(401).json({ error: 'يلزم دخول العميل' });
+  if (req.body?.serviceType === 'shared_intercity') {
+    return res.status(409).json({ error: 'خدمة المشترك خارج المحافظات قيد التجهيز — Coming soon' });
+  }
   // منع الرحلات المتكررة: ما بقبلش عميل عنده رحلة نشطة
   const mine = loadFile(RIDES_FILE).rides.filter(r => r.customerId === user.id && ['searching', 'assigned', 'started'].includes(r.status));
   if (mine.length) return res.status(409).json({ error: 'عندك رحلة نشطة، خلّصها أو ألغِها أولاً' });
@@ -287,19 +355,26 @@ app.post('/api/rides', (req, res) => {
       const serviceType = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity', 'jeep', 'jeep_electric'].includes(body.serviceType)
         ? body.serviceType
         : (body.airportRequest ? 'airport' : body.vehicleType === 'private' ? 'private' : rideType === 'intercity' ? 'shared_intercity' : 'shared_intra');
+      if (serviceType === 'shared_intercity') {
+        return res.status(409).json({ error: 'خدمة المشترك خارج المحافظات قيد التجهيز — Coming soon' });
+      }
       const vehicleType = serviceType === 'private' || serviceType === 'electric' ? 'private' : 'shared';
       const pricing = loadFile(PRICING_FILE);
       const requestedPrice = safeNumber(body.price, 0);
       const configuredFare = serviceType === 'jeep'
         ? safeNumber(pricing.jeepFare, 0)
         : body.airportRequest ? safeNumber(pricing.governorateAirportFare, 0) : 0;
-      const price = requestedPrice > 0 ? requestedPrice : Math.max(safeNumber(pricing.minFare, 0), configuredFare);
+      const distanceKm = distanceBetweenLocations(body.pickupLocation, body.destinationLocation);
+      const basePrice = Math.max(safeNumber(pricing.minFare, 0), configuredFare);
+      const price = requestedPrice > 0 ? requestedPrice : (distanceKm === null ? basePrice : estimateRidePrice(pricing, serviceType, distanceKm));
       const wallets = loadFile(WALLETS_FILE);
+      if (!Array.isArray(wallets.customers)) wallets.customers = [];
       const customerWallet = wallets.customers.find(account => account.accountId === user.walletAccountId);
       const walletBalance = safeNumber(customerWallet?.balance, 0);
       const walletDebit = walletBalance > 0 ? round2(Math.min(walletBalance, price)) : 0;
       if (customerWallet && walletDebit > 0) {
         customerWallet.balance = round2(walletBalance - walletDebit);
+        if (!Array.isArray(customerWallet.transactions)) customerWallet.transactions = [];
         customerWallet.transactions.unshift({
           type: 'debit',
           amount: -walletDebit,
@@ -318,19 +393,21 @@ app.post('/api/rides', (req, res) => {
         customerId: user.id, customerName: user.name, customerPhone: user.phone,
         targetCaptainId: body.targetCaptainId || null,
         price,
+        distanceKm: distanceKm === null ? undefined : round2(distanceKm),
         walletDebit,
         remainingDue: round2(Math.max(0, price - walletDebit)),
         status: 'searching', createdAt: new Date().toISOString(),
         offerCaptainId: null, offerExpiresAt: null, offerAttemptedCaptainIds: []
       };
       // body ما بيقدرش يطغى على الحقول المهمة (نترتيب المفاتيح بعد ...body)
+      refreshRideOffer(trip, rides);
       rides.rides.unshift(trip);
       writeData(RIDES_FILE, rides);
       if (customerWallet && walletDebit > 0) writeData(WALLETS_FILE, wallets);
       res.status(201).json(trip);
     } catch (err) {
       console.error('[create ride]', err);
-      res.status(500).json({ error: 'صار خطأ بإنشاء الرحلة' });
+      if (!res.headersSent) res.status(500).json({ error: 'تعذر إنشاء الرحلة، حاول مرة ثانية' });
     }
   });
 });
@@ -347,7 +424,7 @@ function nextCaptainForRide(ride, rides) {
     if (captain.role !== 'captain' || captain.status !== 'approved' || captain.available === false) return false;
     if (busy.has(captain.id) || attempted.has(captain.id)) return false;
     if (ride.targetCaptainId && ride.targetCaptainId !== captain.id) return false;
-    const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'];
+    const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra'];
     if (ride.serviceType === 'jeep' && (captain.vehicle?.bodyType !== 'jeep' || Number(captain.vehicle?.capacity || 0) < 1 || Number(captain.vehicle?.capacity || 0) > 6)) return false;
     if (ride.serviceType === 'jeep_electric' && !isJeepElectricEligible(captain.vehicle)) return false;
     if (ride.serviceType === 'electric' && captain.vehicle?.electric !== true) return false;
@@ -415,7 +492,7 @@ app.get('/api/captains/available', (req, res) => {
       .filter(captain => captain.role === 'captain' && captain.status === 'approved' && captain.available !== false && !busy.has(captain.id))
       .filter(captain => {
         if (!requestedService) return true;
-        const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'];
+        const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra'];
         if (requestedService === 'electric' && captain.vehicle?.electric !== true) return false;
         if (requestedService === 'jeep_electric' && !isJeepElectricEligible(captain.vehicle)) return false;
         return services.includes(requestedService) || (requestedService.startsWith('shared_') && services.includes('shared'));
@@ -427,8 +504,9 @@ app.get('/api/captains/available', (req, res) => {
         available: captain.available !== false,
         vehicle: captain.vehicle,
         photo: captain.documents?.photo || '',
-        services: (captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity'])
+        services: (captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra'])
           .filter(service => service !== 'electric' || captain.vehicle?.electric === true)
+          .filter(service => service !== 'shared_intercity')
           .filter(service => service !== 'jeep_electric' || isJeepElectricEligible(captain.vehicle)),
       }));
   res.json(captains);
@@ -440,7 +518,28 @@ app.get('/api/rides/mine', (req, res) => {
   const rides = loadFile(RIDES_FILE);
   if (!Array.isArray(rides.rides)) rides.rides = [];
   const mine = rides.rides.filter(r => user.role === 'customer' ? r.customerId === user.id && ['searching', 'assigned', 'started', 'completed'].includes(r.status) : r.captainId === user.id && ['assigned', 'started'].includes(r.status));
+  // الرحلة المكتملة تبقى ظاهرة عند الكابتن حتى يوافق العميل (عشان ما ينسى قيمة الطلب)
+  if (user.role === 'captain') {
+    const acknowledged = new Set(rides.rides.filter(r => r.captainId === user.id && r.status === 'completed' && r.customerAcknowledgedAt).map(r => r.tripNumber));
+    const recentCompleted = rides.rides.filter(r => r.captainId === user.id && r.status === 'completed' && !acknowledged.has(r.tripNumber));
+    return res.json([...mine, ...recentCompleted].map(ride => enrichRideForUser(ride, user)));
+  }
   res.json(mine.map(ride => enrichRideForUser(ride, user)));
+});
+
+// موافقة العميل على قيمة الرحلة المكتملة — بعدها تختفي من الواجهتين
+app.post('/api/rides/:tripNumber/acknowledge', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user || user.role !== 'customer') return res.status(401).json({ error: 'يلزم دخول العميل' });
+  withLock('rides', () => {
+    const rides = loadFile(RIDES_FILE);
+    const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
+    if (!trip || trip.customerId !== user.id) return res.status(404).json({ error: 'الرحلة غير موجودة لحسابك' });
+    if (trip.status !== 'completed') return res.status(409).json({ error: 'يمكن الموافقة على الرحلة بعد إنهائها' });
+    trip.customerAcknowledgedAt = new Date().toISOString();
+    writeData(RIDES_FILE, rides);
+    res.json({ ok: true });
+  });
 });
 
 app.get('/api/rides/history', (req, res) => {
@@ -532,7 +631,7 @@ app.post('/api/rides/:tripNumber/start', (req, res) => {
   withLock('rides', () => {
     const rides = loadFile(RIDES_FILE);
     const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
-    if (!trip || trip.captainId !== user.id || trip.status !== 'assigned') return res.status(409).json({ error: 'غير قابلة للبدء' });
+    if (!trip || trip.captainId !== user.id || trip.status !== 'assigned' || !trip.arrivedAt) return res.status(409).json({ error: 'سجّل الوصول إلى العميل أولًا' });
     trip.status = 'started'; trip.startedAt = new Date().toISOString();
     writeData(RIDES_FILE, rides);
     res.json(trip);
@@ -547,7 +646,7 @@ app.post('/api/rides/:tripNumber/arrive', (req, res) => {
     const rides = loadFile(RIDES_FILE);
     const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
     if (!trip || trip.captainId !== user.id) return res.status(404).json({ error: 'الرحلة غير موجودة لحسابك' });
-    if (trip.status !== 'started') return res.status(409).json({ error: 'ابدأ الرحلة أولاً' });
+    if (trip.status !== 'assigned') return res.status(409).json({ error: 'يمكن تسجيل الوصول بعد قبول الرحلة وقبل بدئها' });
     trip.arrivedAt = new Date().toISOString();
     writeData(RIDES_FILE, rides);
     res.json(trip);
@@ -581,6 +680,11 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
   if (!trip) return res.status(404).json({ error: 'غير موجودة' });
   if (trip.captainId !== user.id) return res.status(403).json({ error: 'الرحلة ليست محجوزة لك' });
   if (trip.status !== 'started') return res.status(409).json({ error: 'أنهِ الرحلة بعد بدءها والوصول إلى الموقع' });
+  const startedAt = new Date(trip.startedAt || 0).getTime();
+  if (!Number.isFinite(startedAt) || Date.now() - startedAt < 10000) {
+    const remaining = Math.max(1, Math.ceil((10000 - (Date.now() - startedAt)) / 1000));
+    return res.status(409).json({ error: `زر الإنهاء يتفعل بعد ${remaining} ثوانٍ من بدء الرحلة` });
+  }
 
   const pricing = loadFile(PRICING_FILE);
   const price = Number(trip.price) || 0;
@@ -588,17 +692,31 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
   const commission = Number((price * rate).toFixed(2));
   trip.status = 'completed'; trip.completedAt = new Date().toISOString();
   trip.commission = commission; trip.captainNet = Number((price - commission).toFixed(2));
+  // تفاصيل الإنهاء: كم، مدة الرحلة، وقت المتصلة — تظهر عند الكابتن والعميل
+  const distanceKm = Number(trip.distanceKm);
+  if (Number.isFinite(distanceKm)) trip.distanceKm = distanceKm;
+  const startMs = new Date(trip.startedAt || trip.arrivedAt || trip.assignedAt || trip.createdAt || trip.completedAt).getTime();
+  trip.durationMinutes = Math.max(1, Math.round((new Date(trip.completedAt).getTime() - startMs) / 60000));
+  const onlineMs = new Date(trip.completedAt).getTime() - new Date(trip.createdAt || trip.completedAt).getTime();
+  trip.onlineMinutes = Math.max(1, Math.round(onlineMs / 60000));
+  // الرحلة تبقى ظاهرة عند الطرفين حتى يوافق العميل
+  trip.customerAcknowledgedAt = null;
   writeData(RIDES_FILE, rides);
 
   const wallets = loadFile(WALLETS_FILE);
-  const captainAcc = wallets.captains.find(a => a.accountId === user.walletAccountId);
-  if (captainAcc) {
-    if (commission > 0) {
-      captainAcc.balance = round2(captainAcc.balance - commission);
-      captainAcc.transactions.unshift({ type: 'debit', amount: -commission, note: `عمولة الشركة للرحلة ${trip.tripNumber}`, createdAt: trip.completedAt });
-    }
-    writeData(WALLETS_FILE, wallets);
+  if (!Array.isArray(wallets.captains)) wallets.captains = [];
+  let captainAcc = wallets.captains.find(a => a.accountId === user.walletAccountId);
+  if (!captainAcc) {
+    captainAcc = { accountId: user.walletAccountId, accountName: user.name, balance: 0, transactions: [] };
+    wallets.captains.push(captainAcc);
   }
+  if (commission > 0) {
+    // العمولة تُخصم حتى لو الرصيد صفر — تصبح سالب
+    captainAcc.balance = round2((Number(captainAcc.balance) || 0) - commission);
+    if (!Array.isArray(captainAcc.transactions)) captainAcc.transactions = [];
+    captainAcc.transactions.unshift({ type: 'debit', amount: -commission, note: `عمولة الشركة للرحلة ${trip.tripNumber}`, createdAt: trip.completedAt });
+  }
+  writeData(WALLETS_FILE, wallets);
   res.json(trip);
   });
 
@@ -661,7 +779,9 @@ app.post('/api/auth/register', (req, res) => {
     return res.status(400).json({ error: 'بيانات الكابتن وصور الهوية والرخص والسيارة وعدم المحكومية مطلوبة' });
   }
   const users = loadFile(USERS_FILE);
-  if (users.users.find(u => samePhone(u.phone, normalizedPhone))) return res.status(409).json({ error: 'رقم الهاتف موجود مسبقاً' });
+  if (users.users.find(u => samePhone(u.phone, normalizedPhone) && u.role === role)) {
+    return res.status(409).json({ error: role === 'customer' ? 'رقم الهاتف مستخدم في حساب عميل مسبقاً' : 'رقم الهاتف مستخدم في حساب كابتن مسبقاً' });
+  }
 
   const id = crypto.randomUUID();
   const pwd = hashPassword(String(password));
@@ -676,7 +796,7 @@ app.post('/api/auth/register', (req, res) => {
     walletAccountId: normalizedPhone,
     available: role === 'captain' ? true : undefined,
     services: role === 'captain'
-      ? ['private', 'shared_intra', 'shared_intercity', ...(vehicle?.electric === true ? ['electric'] : []), 'airport',
+      ? ['private', 'shared_intra', ...(vehicle?.electric === true ? ['electric'] : []), 'airport',
         ...(vehicle?.bodyType === 'jeep' && Number(vehicle?.capacity) >= 1 && Number(vehicle?.capacity) <= 6 ? ['jeep'] : []),
         ...(isJeepElectricEligible(vehicle) ? ['jeep_electric'] : [])]
       : undefined,
@@ -743,7 +863,7 @@ app.patch('/api/captains/me/availability', (req, res) => {
   if (!captain) return res.status(404).json({ error: 'الكابتن غير موجود' });
   captain.available = available;
   if (Array.isArray(req.body?.services)) {
-      const allowedServices = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'shared_intercity', 'jeep', 'jeep_electric'];
+      const allowedServices = ['private', 'shared', 'electric', 'airport', 'shared_intra', 'jeep', 'jeep_electric'];
     captain.services = [...new Set(req.body.services
       .filter(service => allowedServices.includes(service))
       .filter(service => service !== 'electric' || captain.vehicle?.electric === true)
@@ -763,6 +883,9 @@ app.patch('/api/captains/me/availability', (req, res) => {
 
 async function startServer() {
   try {
+    if (process.env.NODE_ENV === 'production' && !hasPersistentStore) {
+      throw new Error('DATABASE_URL is required in production to preserve accounts and application data');
+    }
     const snapshots = {};
     for (const [dataKey, file] of Object.entries(DATA_FILES)) {
       snapshots[dataKey] = loadFile(file);
@@ -782,11 +905,23 @@ async function startServer() {
     }
   } catch (error) {
     console.error('[database startup]', error);
+    if (process.env.NODE_ENV === 'production') {
+      process.exitCode = 1;
+      return;
+    }
   }
-  app.listen(PORT, () => console.log(`Darbak Server on ${PORT}`));
+  if (!process.env.VERCEL) app.listen(PORT, () => console.log(`Darbak Server on ${PORT}`));
 }
 
-startServer();
+const startupPromise = startServer();
+app.use(async (req, res, next) => {
+  try {
+    await startupPromise;
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ===== المسارات الإدارية لغرفة التحكم =====
 
@@ -809,12 +944,9 @@ app.post('/api/admin/users/:id/:action', (req, res) => {
   else if (action === 'archive') user.status = 'archived';
   else if (action === 'restore') user.status = 'approved';
   else if (action === 'delete') {
-    users.users = users.users.filter(u => u.id !== id);
+    user.status = 'archived';
+    user.archivedAt = new Date().toISOString();
     users.sessions = users.sessions.filter(session => session.userId !== id);
-    const wallets = loadFile(WALLETS_FILE);
-    const roleKey = user.role === 'captain' ? 'captains' : 'customers';
-    wallets[roleKey] = (wallets[roleKey] || []).filter(account => account.accountId !== user.walletAccountId);
-    writeData(WALLETS_FILE, wallets);
   }
   else return res.status(400).json({ error: 'إجراء غير معروف' });
   writeData(USERS_FILE, users);
@@ -857,8 +989,10 @@ app.get('/api/admin/users/:phone/history', (req, res) => {
   if (!user) return res.status(404).json({ error: 'لا يوجد حساب بهذا الرقم' });
   const wallets = loadFile(WALLETS_FILE);
   const wallet = wallets[`${user.role}s`]?.find(a => a.accountId === user.walletAccountId) || { balance: 0, transactions: [] };
-  const rides = loadFile(RIDES_FILE).rides.filter(r => user.role === 'customer' ? r.customerId === user.id : r.captainId === user.id);
-  res.json({ user: publicUser(user), wallet, rides });
+  const rides = loadFile(RIDES_FILE).rides
+    .filter(r => user.role === 'customer' ? r.customerId === user.id : r.captainId === user.id)
+    .map(enrichRideForAdmin);
+  res.json({ user: adminUserProfile(user), wallet, rides });
 });
 
 // تتبع رحلة برقمها
@@ -866,13 +1000,13 @@ app.get('/api/admin/rides/:tripNumber', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
   const trip = loadFile(RIDES_FILE).rides.find(r => r.tripNumber === req.params.tripNumber);
   if (!trip) return res.status(404).json({ error: 'الرحلة غير موجودة' });
-  res.json(trip);
+  res.json(enrichRideForAdmin(trip));
 });
 
 // كل الرحلات — للمراقبة الحية
 app.get('/api/admin/rides', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
-  res.json(loadFile(RIDES_FILE).rides.map(ride => enrichRideForUser(ride, { role: 'customer' })));
+  res.json(loadFile(RIDES_FILE).rides.map(enrichRideForAdmin));
 });
 
 // الرموز الترويجية
