@@ -116,6 +116,32 @@ const safeNumber = (value, fallback = 0) => {
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
+function distanceBetweenLocations(from, to) {
+  if (!from || !to) return null;
+  const lat1 = safeNumber(from.lat, NaN);
+  const lng1 = safeNumber(from.lng, NaN);
+  const lat2 = safeNumber(to.lat, NaN);
+  const lng2 = safeNumber(to.lng, NaN);
+  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) return null;
+  const radians = Math.PI / 180;
+  const a = Math.sin((lat2 - lat1) * radians / 2) ** 2
+    + Math.cos(lat1 * radians) * Math.cos(lat2 * radians) * Math.sin((lng2 - lng1) * radians / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function estimateRidePrice(pricing, serviceType, distanceKm) {
+  const fixedFare = serviceType === 'jeep'
+    ? safeNumber(pricing.jeepFare, 0)
+    : serviceType === 'airport'
+      ? safeNumber(pricing.governorateAirportFare, 0)
+      : 0;
+  const fareConfig = serviceType === 'private' || serviceType === 'electric'
+    ? (pricing.privateCarFare || {})
+    : pricing;
+  const distanceFare = safeNumber(fareConfig.baseFare, 0) + safeNumber(fareConfig.perKmRate, 0) * distanceKm;
+  return round2(Math.max(safeNumber(pricing.minFare, 0), fixedFare, distanceFare));
+}
+
 // قفل بسيط لمنع تضارب الكتابة بين الطلبات المتزامنة — مع معالجة أخطاء بدل ما يعلّق الطلب
 const locks = new Map();
 function withLock(key, fn) {
@@ -178,6 +204,27 @@ function publicUser(user) {
   };
 }
 
+function adminUserProfile(user) {
+  if (!user) return null;
+  return {
+    ...publicUser(user),
+    createdAt: user.createdAt,
+    reviewedAt: user.reviewedAt,
+    location: user.location || null,
+  };
+}
+
+function enrichRideForAdmin(ride) {
+  const users = loadFile(USERS_FILE);
+  const customer = users.users.find(item => item.id === ride.customerId);
+  const captain = users.users.find(item => item.id === ride.captainId);
+  return {
+    ...ride,
+    customerProfile: adminUserProfile(customer),
+    captainProfile: adminUserProfile(captain),
+  };
+}
+
 function enrichRideForUser(ride, user) {
   const users = loadFile(USERS_FILE);
   const customer = users.users.find(item => item.id === ride.customerId);
@@ -218,6 +265,16 @@ app.get('/api/auth/me', (req, res) => {
 
 // التسعيرة
 app.get('/api/pricing', (req, res) => res.json(loadFile(PRICING_FILE)));
+
+app.post('/api/rides/estimate', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user || user.role !== 'customer') return res.status(401).json({ error: 'يلزم دخول العميل' });
+  const distanceKm = distanceBetweenLocations(req.body?.pickupLocation, req.body?.destinationLocation);
+  if (distanceKm === null) return res.status(400).json({ error: 'أرسل إحداثيات الانطلاق والوجهة' });
+  const serviceType = String(req.body?.serviceType || 'private');
+  const price = estimateRidePrice(loadFile(PRICING_FILE), serviceType, distanceKm);
+  res.json({ distanceKm: round2(distanceKm), price, currency: loadFile(PRICING_FILE).currency || 'د.أ' });
+});
 
 app.put('/api/pricing', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
@@ -293,7 +350,9 @@ app.post('/api/rides', (req, res) => {
       const configuredFare = serviceType === 'jeep'
         ? safeNumber(pricing.jeepFare, 0)
         : body.airportRequest ? safeNumber(pricing.governorateAirportFare, 0) : 0;
-      const price = requestedPrice > 0 ? requestedPrice : Math.max(safeNumber(pricing.minFare, 0), configuredFare);
+      const distanceKm = distanceBetweenLocations(body.pickupLocation, body.destinationLocation);
+      const basePrice = Math.max(safeNumber(pricing.minFare, 0), configuredFare);
+      const price = requestedPrice > 0 ? requestedPrice : (distanceKm === null ? basePrice : estimateRidePrice(pricing, serviceType, distanceKm));
       const wallets = loadFile(WALLETS_FILE);
       const customerWallet = wallets.customers.find(account => account.accountId === user.walletAccountId);
       const walletBalance = safeNumber(customerWallet?.balance, 0);
@@ -317,7 +376,8 @@ app.post('/api/rides', (req, res) => {
         tripNumber: `NR-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
         customerId: user.id, customerName: user.name, customerPhone: user.phone,
         targetCaptainId: body.targetCaptainId || null,
-        price,
+        price: requestedPrice > 0 ? requestedPrice : estimatedPrice,
+        distanceKm: distanceKm === null ? undefined : round2(distanceKm),
         walletDebit,
         remainingDue: round2(Math.max(0, price - walletDebit)),
         status: 'searching', createdAt: new Date().toISOString(),
@@ -532,7 +592,7 @@ app.post('/api/rides/:tripNumber/start', (req, res) => {
   withLock('rides', () => {
     const rides = loadFile(RIDES_FILE);
     const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
-    if (!trip || trip.captainId !== user.id || trip.status !== 'assigned') return res.status(409).json({ error: 'غير قابلة للبدء' });
+    if (!trip || trip.captainId !== user.id || trip.status !== 'assigned' || !trip.arrivedAt) return res.status(409).json({ error: 'سجّل الوصول إلى العميل أولًا' });
     trip.status = 'started'; trip.startedAt = new Date().toISOString();
     writeData(RIDES_FILE, rides);
     res.json(trip);
@@ -547,7 +607,7 @@ app.post('/api/rides/:tripNumber/arrive', (req, res) => {
     const rides = loadFile(RIDES_FILE);
     const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
     if (!trip || trip.captainId !== user.id) return res.status(404).json({ error: 'الرحلة غير موجودة لحسابك' });
-    if (trip.status !== 'started') return res.status(409).json({ error: 'ابدأ الرحلة أولاً' });
+    if (trip.status !== 'assigned') return res.status(409).json({ error: 'يمكن تسجيل الوصول بعد قبول الرحلة وقبل بدئها' });
     trip.arrivedAt = new Date().toISOString();
     writeData(RIDES_FILE, rides);
     res.json(trip);
@@ -581,6 +641,11 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
   if (!trip) return res.status(404).json({ error: 'غير موجودة' });
   if (trip.captainId !== user.id) return res.status(403).json({ error: 'الرحلة ليست محجوزة لك' });
   if (trip.status !== 'started') return res.status(409).json({ error: 'أنهِ الرحلة بعد بدءها والوصول إلى الموقع' });
+  const startedAt = new Date(trip.startedAt || 0).getTime();
+  if (!Number.isFinite(startedAt) || Date.now() - startedAt < 10000) {
+    const remaining = Math.max(1, Math.ceil((10000 - (Date.now() - startedAt)) / 1000));
+    return res.status(409).json({ error: `زر الإنهاء يتفعل بعد ${remaining} ثوانٍ من بدء الرحلة` });
+  }
 
   const pricing = loadFile(PRICING_FILE);
   const price = Number(trip.price) || 0;
@@ -857,8 +922,10 @@ app.get('/api/admin/users/:phone/history', (req, res) => {
   if (!user) return res.status(404).json({ error: 'لا يوجد حساب بهذا الرقم' });
   const wallets = loadFile(WALLETS_FILE);
   const wallet = wallets[`${user.role}s`]?.find(a => a.accountId === user.walletAccountId) || { balance: 0, transactions: [] };
-  const rides = loadFile(RIDES_FILE).rides.filter(r => user.role === 'customer' ? r.customerId === user.id : r.captainId === user.id);
-  res.json({ user: publicUser(user), wallet, rides });
+  const rides = loadFile(RIDES_FILE).rides
+    .filter(r => user.role === 'customer' ? r.customerId === user.id : r.captainId === user.id)
+    .map(enrichRideForAdmin);
+  res.json({ user: adminUserProfile(user), wallet, rides });
 });
 
 // تتبع رحلة برقمها
@@ -866,13 +933,13 @@ app.get('/api/admin/rides/:tripNumber', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
   const trip = loadFile(RIDES_FILE).rides.find(r => r.tripNumber === req.params.tripNumber);
   if (!trip) return res.status(404).json({ error: 'الرحلة غير موجودة' });
-  res.json(trip);
+  res.json(enrichRideForAdmin(trip));
 });
 
 // كل الرحلات — للمراقبة الحية
 app.get('/api/admin/rides', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
-  res.json(loadFile(RIDES_FILE).rides.map(ride => enrichRideForUser(ride, { role: 'customer' })));
+  res.json(loadFile(RIDES_FILE).rides.map(enrichRideForAdmin));
 });
 
 // الرموز الترويجية
