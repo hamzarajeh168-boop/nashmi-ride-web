@@ -413,6 +413,12 @@ app.post('/api/rides', (req, res) => {
 });
 
 const OFFER_WINDOW_MS = 10000;
+const CAPTAIN_ONLINE_WINDOW_MS = 60000;
+
+function isCaptainOnline(captain) {
+  const updatedAt = captain.location?.updatedAt ? new Date(captain.location.updatedAt).getTime() : 0;
+  return Number.isFinite(updatedAt) && Date.now() - updatedAt <= CAPTAIN_ONLINE_WINDOW_MS;
+}
 
 function nextCaptainForRide(ride, rides) {
   const users = loadFile(USERS_FILE);
@@ -421,7 +427,7 @@ function nextCaptainForRide(ride, rides) {
     .map(item => item.captainId));
   const attempted = new Set(ride.offerAttemptedCaptainIds || []);
   const candidates = users.users.filter(captain => {
-    if (captain.role !== 'captain' || captain.status !== 'approved' || captain.available === false) return false;
+    if (captain.role !== 'captain' || captain.status !== 'approved' || captain.available === false || !isCaptainOnline(captain)) return false;
     if (busy.has(captain.id) || attempted.has(captain.id)) return false;
     if (ride.targetCaptainId && ride.targetCaptainId !== captain.id) return false;
     const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra'];
@@ -489,7 +495,7 @@ app.get('/api/captains/available', (req, res) => {
   const busy = new Set(rides.filter(ride => ['assigned', 'started'].includes(ride.status)).map(ride => ride.captainId));
   const requestedService = String(req.query.service || '');
   const captains = users.users
-      .filter(captain => captain.role === 'captain' && captain.status === 'approved' && captain.available !== false && !busy.has(captain.id))
+      .filter(captain => captain.role === 'captain' && captain.status === 'approved' && captain.available !== false && isCaptainOnline(captain) && !busy.has(captain.id))
       .filter(captain => {
         if (!requestedService) return true;
         const services = captain.services || ['private', 'shared', 'electric', 'airport', 'shared_intra'];
