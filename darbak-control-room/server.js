@@ -731,7 +731,9 @@ app.post('/api/auth/register', (req, res) => {
     return res.status(400).json({ error: 'بيانات الكابتن وصور الهوية والرخص والسيارة وعدم المحكومية مطلوبة' });
   }
   const users = loadFile(USERS_FILE);
-  if (users.users.find(u => samePhone(u.phone, normalizedPhone))) return res.status(409).json({ error: 'رقم الهاتف موجود مسبقاً' });
+  if (users.users.find(u => samePhone(u.phone, normalizedPhone) && u.role === role)) {
+    return res.status(409).json({ error: role === 'customer' ? 'رقم الهاتف مستخدم في حساب عميل مسبقاً' : 'رقم الهاتف مستخدم في حساب كابتن مسبقاً' });
+  }
 
   const id = crypto.randomUUID();
   const pwd = hashPassword(String(password));
