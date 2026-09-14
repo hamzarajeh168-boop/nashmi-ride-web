@@ -393,6 +393,7 @@ app.post('/api/rides', (req, res) => {
         offerCaptainId: null, offerExpiresAt: null, offerAttemptedCaptainIds: []
       };
       // body ما بيقدرش يطغى على الحقول المهمة (نترتيب المفاتيح بعد ...body)
+      refreshRideOffer(trip, rides);
       rides.rides.unshift(trip);
       writeData(RIDES_FILE, rides);
       if (customerWallet && walletDebit > 0) writeData(WALLETS_FILE, wallets);
