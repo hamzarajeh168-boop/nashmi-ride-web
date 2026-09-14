@@ -331,6 +331,9 @@ app.post('/api/wallets/topup-request', (req, res) => {
 app.post('/api/rides', (req, res) => {
   const user = getAuthenticatedUser(req);
   if (!user || user.role !== 'customer') return res.status(401).json({ error: 'يلزم دخول العميل' });
+  if (req.body?.serviceType === 'shared_intercity') {
+    return res.status(409).json({ error: 'خدمة المشترك خارج المحافظات قيد التجهيز — Coming soon' });
+  }
   // منع الرحلات المتكررة: ما بقبلش عميل عنده رحلة نشطة
   const mine = loadFile(RIDES_FILE).rides.filter(r => r.customerId === user.id && ['searching', 'assigned', 'started'].includes(r.status));
   if (mine.length) return res.status(409).json({ error: 'عندك رحلة نشطة، خلّصها أو ألغِها أولاً' });
