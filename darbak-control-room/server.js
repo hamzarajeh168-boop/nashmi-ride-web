@@ -10,13 +10,14 @@ const PORT = process.env.PORT || 4000;
 const ADMIN_KEY = process.env.ADMIN_KEY || 'darbak-2026';
 
 // مسارات ملفات البيانات
-const PRICING_FILE = path.join(__dirname, 'data', 'pricing.json');
-const WALLETS_FILE = path.join(__dirname, 'data', 'wallets.json');
-const TOPUPS_FILE = path.join(__dirname, 'data', 'topups.json');
-const USERS_FILE = path.join(__dirname, 'data', 'users.json');
-const RIDES_FILE = path.join(__dirname, 'data', 'rides.json');
-const PROMOS_FILE = path.join(__dirname, 'data', 'promos.json');
-const SUPPORT_FILE = path.join(__dirname, 'data', 'support.json');
+const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'nashmi-data') : path.join(__dirname, 'data');
+const PRICING_FILE = path.join(DATA_DIR, 'pricing.json');
+const WALLETS_FILE = path.join(DATA_DIR, 'wallets.json');
+const TOPUPS_FILE = path.join(DATA_DIR, 'topups.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const RIDES_FILE = path.join(DATA_DIR, 'rides.json');
+const PROMOS_FILE = path.join(DATA_DIR, 'promos.json');
+const SUPPORT_FILE = path.join(DATA_DIR, 'support.json');
 const DATA_FILES = {
   pricing: PRICING_FILE,
   wallets: WALLETS_FILE,
@@ -52,7 +53,13 @@ const readData = (file, fallback) => {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
     return parsed && typeof parsed === 'object' ? parsed : { ...fallback };
   } catch {
-    return fallback ? { ...fallback } : {};
+    try {
+      const bundledFile = path.join(__dirname, 'data', path.basename(file));
+      const parsed = JSON.parse(fs.readFileSync(bundledFile, 'utf-8'));
+      return parsed && typeof parsed === 'object' ? parsed : (fallback ? { ...fallback } : {});
+    } catch {
+      return fallback ? { ...fallback } : {};
+    }
   }
 };
 const writeData = (file, data) => {
@@ -868,10 +875,18 @@ async function startServer() {
       return;
     }
   }
-  app.listen(PORT, () => console.log(`Darbak Server on ${PORT}`));
+  if (!process.env.VERCEL) app.listen(PORT, () => console.log(`Darbak Server on ${PORT}`));
 }
 
-startServer();
+const startupPromise = startServer();
+app.use(async (req, res, next) => {
+  try {
+    await startupPromise;
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ===== المسارات الإدارية لغرفة التحكم =====
 
