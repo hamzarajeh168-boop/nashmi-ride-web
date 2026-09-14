@@ -436,7 +436,7 @@ function renderUsers(users) {
   els.usersList.querySelectorAll('[data-user-id]').forEach((button) => button.addEventListener('click', async () => {
     if (button.dataset.userAction === 'reject' && !confirm('رفض طلب تسجيل هذا الكابتن؟')) return;
     if (button.dataset.userAction === 'archive' && !confirm('أرشفة هذا الحساب؟ يمكن استرجاعه لاحقًا.')) return;
-    if (button.dataset.userAction === 'delete' && !confirm('هل أنت متأكد من حذف هذا الحساب نهائيًا؟')) return;
+    if (button.dataset.userAction === 'delete' && !confirm('سيتم أرشفة الحساب مع حفظ بياناته وسجله، هل تريد المتابعة؟')) return;
     await fetch(`/api/admin/users/${button.dataset.userId}/${button.dataset.userAction}`, { method: 'POST', headers: { 'x-admin-key': els.adminKey.value.trim() } });
     loadUsers();
   }));

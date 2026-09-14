@@ -881,12 +881,9 @@ app.post('/api/admin/users/:id/:action', (req, res) => {
   else if (action === 'archive') user.status = 'archived';
   else if (action === 'restore') user.status = 'approved';
   else if (action === 'delete') {
-    users.users = users.users.filter(u => u.id !== id);
+    user.status = 'archived';
+    user.archivedAt = new Date().toISOString();
     users.sessions = users.sessions.filter(session => session.userId !== id);
-    const wallets = loadFile(WALLETS_FILE);
-    const roleKey = user.role === 'captain' ? 'captains' : 'customers';
-    wallets[roleKey] = (wallets[roleKey] || []).filter(account => account.accountId !== user.walletAccountId);
-    writeData(WALLETS_FILE, wallets);
   }
   else return res.status(400).json({ error: 'إجراء غير معروف' });
   writeData(USERS_FILE, users);
