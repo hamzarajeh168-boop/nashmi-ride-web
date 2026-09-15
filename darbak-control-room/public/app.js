@@ -75,12 +75,12 @@ const els = {
 
 let currentConfig = null;
 
-// نحتفظ بمفتاح الإدارة محلياً بالمتصفح بس (مش على السيرفر) عشان ما تعيد كتابته كل مرة
+// نحتفظ بمفتاح الإدارة محليًا في المتصفح فقط (وليس على الخادم) حتى لا تضطر إلى إعادة كتابته في كل مرة
 const savedKey = localStorage.getItem('darbak_admin_key');
 if (savedKey) els.adminKey.value = savedKey;
 
 function setStatus(ok) {
-  els.statusPill.textContent = ok ? 'متصل بالسيرفر' : 'غير متصل بالسيرفر';
+  els.statusPill.textContent = ok ? 'متصل بالخادم' : 'غير متصل بالخادم';
   els.statusPill.className = 'status-pill ' + (ok ? 'status-on' : 'status-off');
 }
 
@@ -167,7 +167,7 @@ async function loadPricing() {
     updatePreview();
   } catch (e) {
     setStatus(false);
-    showMsg('تعذّر الاتصال بالسيرفر، تأكد إنه شغال', 'err');
+    showMsg('تعذّر الاتصال بالخادم، تأكد أنه يعمل', 'err');
   }
 }
 
@@ -211,13 +211,13 @@ async function savePricing() {
   };
 
   if (Object.values(body).some((v) => typeof v === 'number' && isNaN(v))) {
-    showMsg('تأكد إنك عبّيت كل الحقول بأرقام صحيحة', 'err');
+    showMsg('تأكد من تعبئة جميع الحقول بأرقام صحيحة', 'err');
     return;
   }
 
   const key = els.adminKey.value.trim();
   if (!key) {
-    showMsg('لازم تدخل مفتاح الإدارة أول', 'err');
+    showMsg('يجب إدخال مفتاح الإدارة أولًا', 'err');
     return;
   }
   localStorage.setItem('darbak_admin_key', key);
@@ -234,11 +234,11 @@ async function savePricing() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل الحفظ');
     currentConfig = data;
-    showMsg('تم حفظ التسعيرة بنجاح ✅ رح تنعكس على التطبيقين فوراً', 'ok');
+    showMsg('تم حفظ التسعيرة بنجاح ✅ وستنعكس على التطبيقين فوراً', 'ok');
     els.meta.textContent = `آخر تحديث: ${new Date(data.updatedAt).toLocaleString('ar-JO')} — بواسطة: ${data.updatedBy}`;
     updatePreview();
   } catch (e) {
-    showMsg(e.message || 'صار خطأ أثناء الحفظ', 'err');
+    showMsg(e.message || 'حدث خطأ أثناء الحفظ', 'err');
   } finally {
     els.saveBtn.disabled = false;
     els.saveBtn.textContent = 'حفظ التسعيرة';
@@ -349,7 +349,7 @@ async function loadCaptains() {
     renderCaptains(data);
     showCaptainMsg(data.length ? `يوجد ${data.length} طلب كابتن بانتظار المراجعة` : 'لا توجد طلبات جديدة حاليًا', 'ok');
   } catch (e) {
-    showCaptainMsg('تعذّر الاتصال بالسيرفر');
+    showCaptainMsg('تعذّر الاتصال بالخادم');
   }
 }
 
@@ -486,7 +486,7 @@ async function updateCaptain(card, action) {
     message.textContent = res.ok ? 'تم حفظ بيانات وصور الكابتن' : data.error;
     message.className = `msg ${res.ok ? 'ok' : 'err'}`;
   } catch (e) {
-    if (message) { message.textContent = 'تعذّر الاتصال بالسيرفر'; message.className = 'msg err'; }
+    if (message) { message.textContent = 'تعذّر الاتصال بالخادم'; message.className = 'msg err'; }
   }
 }
 

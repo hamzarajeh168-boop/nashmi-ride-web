@@ -31,9 +31,6 @@
     "معان": 12,
     "العقبة": 15
   },
-  "updatedBy": "مسؤول غرفة التحكم",
-  "updatedAt": "2026-09-09T11:28:09.246Z",
-  "currency": "د.أ",
   "paymentMethods": [
     {
       "id": "orange_money",
@@ -53,5 +50,9 @@
       "account": "شراء رصيد",
       "enabled": true
     }
-  ]
+  ],
+  "supportWhatsApp": "962790905611",
+  "updatedBy": "مسؤول غرفة التحكم",
+  "updatedAt": "2026-09-15T09:16:40.502Z",
+  "currency": "د.أ"
 }

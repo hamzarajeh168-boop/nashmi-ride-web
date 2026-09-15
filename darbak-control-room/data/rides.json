@@ -20,12 +20,13 @@
       "remainingDue": 1,
       "status": "searching",
       "createdAt": "2026-09-14T14:07:17.332Z",
-      "offerCaptainId": "8fee9552-fc9a-4b54-b54b-f5366757dd50",
-      "offerExpiresAt": "2026-09-14T14:09:20.686Z",
+      "offerCaptainId": null,
+      "offerExpiresAt": null,
       "offerAttemptedCaptainIds": [
-        "78571b4c-91ea-4eee-98ce-209427e7eb15"
+        "78571b4c-91ea-4eee-98ce-209427e7eb15",
+        "8fee9552-fc9a-4b54-b54b-f5366757dd50"
       ],
-      "offerAssignedAt": "2026-09-14T14:09:10.686Z"
+      "offerAssignedAt": null
     }
   ]
 }

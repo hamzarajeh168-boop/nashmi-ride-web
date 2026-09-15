@@ -47,7 +47,7 @@ serveHtmlPage('captain.html', '/captain');
 serveHtmlPage('control-room.html', '/control-room');
 serveHtmlPage('download.html', '/download');
 
-// دالات القراءة والكتابة — تتعامل بأمان إذا الملف مش موجود أو فيه JSON تالف
+// دالات القراءة والكتابة — تتعامل بأمان إذا الملف غير موجود أو فيه JSON تالف
 const readData = (file, fallback) => {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
@@ -66,7 +66,7 @@ const writeData = (file, data) => {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = file + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tmp, file); // كتابة آمنة: ما بتعطش ملف نصّاً لو انقطعت بنص الكتابة
+  fs.renameSync(tmp, file); // كتابة آمنة: لا يتعطل الملف إذا انقطعت عملية الكتابة
   if (file === RIDES_FILE && Array.isArray(data.rides)) {
     syncRides(data.rides).catch(error => console.error('[database rides sync]', error));
   }
@@ -304,7 +304,9 @@ app.get('/api/wallets/me', (req, res) => {
   res.json({
     ...(account || { balance: 0, transactions: [] }),
     stats: {
+      tripCount: completed.length,
       ordersValue: round2(completed.reduce((sum, ride) => sum + safeNumber(ride.price, 0), 0)),
+      netEarnings: round2(completed.reduce((sum, ride) => sum + safeNumber(ride.captainNet, 0), 0)),
       kilometers: round2(completed.reduce((sum, ride) => sum + safeNumber(ride.distanceKm, 0), 0)),
       onlineMinutes: Math.round(completed.reduce((sum, ride) => sum + (ride.onlineMinutes || 0), 0)),
     },
@@ -344,9 +346,9 @@ app.post('/api/rides', (req, res) => {
   if (req.body?.serviceType === 'shared_intercity') {
     return res.status(409).json({ error: 'خدمة المشترك خارج المحافظات قيد التجهيز — Coming soon' });
   }
-  // منع الرحلات المتكررة: ما بقبلش عميل عنده رحلة نشطة
+  // منع الرحلات المتكررة: لا يُقبل عميل لديه رحلة نشطة
   const mine = loadFile(RIDES_FILE).rides.filter(r => r.customerId === user.id && ['searching', 'assigned', 'started'].includes(r.status));
-  if (mine.length) return res.status(409).json({ error: 'عندك رحلة نشطة، خلّصها أو ألغِها أولاً' });
+  if (mine.length) return res.status(409).json({ error: 'لديك رحلة نشطة، أكملها أو ألغِها أولاً' });
 
   withLock('rides', () => {
     try {
@@ -402,7 +404,7 @@ app.post('/api/rides', (req, res) => {
         status: 'searching', createdAt: new Date().toISOString(),
         offerCaptainId: null, offerExpiresAt: null, offerAttemptedCaptainIds: []
       };
-      // body ما بيقدرش يطغى على الحقول المهمة (نترتيب المفاتيح بعد ...body)
+      // لا يمكن لـ body أن يطغى على الحقول المهمة (نرتّب المفاتيح بعد ...body)
       refreshRideOffer(trip, rides);
       rides.rides.unshift(trip);
       writeData(RIDES_FILE, rides);
@@ -410,7 +412,7 @@ app.post('/api/rides', (req, res) => {
       res.status(201).json(trip);
     } catch (err) {
       console.error('[create ride]', err);
-      if (!res.headersSent) res.status(500).json({ error: 'تعذر إنشاء الرحلة، حاول مرة ثانية' });
+      if (!res.headersSent) res.status(500).json({ error: 'تعذر إنشاء الرحلة، حاول مرة أخرى' });
     }
   });
 });
@@ -527,27 +529,28 @@ app.get('/api/rides/mine', (req, res) => {
   const rides = loadFile(RIDES_FILE);
   if (!Array.isArray(rides.rides)) rides.rides = [];
   let mine = rides.rides.filter(r => user.role === 'customer' ? r.customerId === user.id && ['searching', 'assigned', 'started', 'completed'].includes(r.status) : r.captainId === user.id && ['assigned', 'started'].includes(r.status));
-  // الرحلة المكتملة تبقى ظاهرة عند الكابتن حتى يوافق العميل (عشان ما ينسى قيمة الطلب)
+  // الرحلة المكتملة تبقى ظاهرة عند الكابتن حتى يوافق العميل (حتى لا ينسى قيمة الطلب)
   if (user.role === 'captain') {
     const acknowledged = new Set(rides.rides.filter(r => r.captainId === user.id && r.status === 'completed' && r.customerAcknowledgedAt).map(r => r.tripNumber));
     const recentCompleted = rides.rides.filter(r => r.captainId === user.id && r.status === 'completed' && !acknowledged.has(r.tripNumber));
     return res.json([...mine, ...recentCompleted].map(ride => enrichRideForUser(ride, user)));
   }
-  // عند العميل: بعد موافقته على القيمة تختفي الرحلة من الصفحة الرئيسية — تبقى بس في سجل الرحلات
+  // عند العميل: بعد موافقته على القيمة تختفي الرحلة من الصفحة الرئيسية — تبقى فقط في سجل الرحلات
   mine = mine.filter(r => !(r.status === 'completed' && r.customerAcknowledgedAt));
   res.json(mine.map(ride => enrichRideForUser(ride, user)));
 });
 
-// موافقة العميل على قيمة الرحلة المكتملة — بعدها تختفي من الواجهتين
+// تأكيد استلام الدفع — من الكابتن (هو الذي يقرر هل العميل دفع) أو من العميل
 app.post('/api/rides/:tripNumber/acknowledge', (req, res) => {
   const user = getAuthenticatedUser(req);
-  if (!user || user.role !== 'customer') return res.status(401).json({ error: 'يلزم دخول العميل' });
+  if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
   withLock('rides', () => {
     const rides = loadFile(RIDES_FILE);
     const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
-    if (!trip || trip.customerId !== user.id) return res.status(404).json({ error: 'الرحلة غير موجودة لحسابك' });
-    if (trip.status !== 'completed') return res.status(409).json({ error: 'يمكن الموافقة على الرحلة بعد إنهائها' });
+    if (!trip || (trip.customerId !== user.id && trip.captainId !== user.id)) return res.status(404).json({ error: 'الرحلة غير موجودة لحسابك' });
+    if (trip.status !== 'completed') return res.status(409).json({ error: 'يمكن تأكيد الدفع بعد إنهاء الرحلة' });
     trip.customerAcknowledgedAt = new Date().toISOString();
+    if (user.role === 'captain') trip.paymentConfirmedBy = 'captain';
     writeData(RIDES_FILE, rides);
     res.json({ ok: true });
   });
@@ -604,7 +607,7 @@ app.post('/api/rides/:tripNumber/assign', (req, res) => {
       res.json(trip);
     } catch (err) {
       console.error('[assign]', err);
-      res.status(500).json({ error: 'صار خطأ بحجز الرحلة' });
+      res.status(500).json({ error: 'حدث خطأ أثناء حجز الرحلة' });
     }
   });
 });
@@ -675,7 +678,7 @@ app.post('/api/rides/:tripNumber/cancel', (req, res) => {
     if (!trip) return res.status(404).json({ error: 'غير موجودة' });
     const allowed = trip.customerId === user.id || (user.role === 'captain' && trip.captainId === user.id);
     if (!allowed) return res.status(403).json({ error: 'غير مسموح' });
-    if (!['searching', 'assigned', 'started'].includes(trip.status)) return res.status(409).json({ error: 'ما بتقدرش تلغيها' });
+    if (!['searching', 'assigned', 'started'].includes(trip.status)) return res.status(409).json({ error: 'لا يمكن إلغاؤها في هذه المرحلة' });
     trip.status = 'cancelled'; trip.cancelledAt = new Date().toISOString();
     trip.cancelledBy = user.role;
     if (trip.captainId) {
@@ -742,7 +745,9 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
   writeData(WALLETS_FILE, wallets);
   res.json(trip);
   });
+});
 
+// دردشة الرحلة
   app.get('/api/rides/:tripNumber/chat', (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
@@ -765,9 +770,10 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
       writeData(RIDES_FILE, rides);
       res.status(201).json(trip.messages[trip.messages.length - 1]);
     });
-  });
+});
 
-  app.post('/api/rides/:tripNumber/rating', (req, res) => {
+// التقييم
+app.post('/api/rides/:tripNumber/rating', (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'الجلسة غير صالحة' });
     const rating = Number(req.body?.rating);
@@ -788,7 +794,6 @@ app.post('/api/rides/:tripNumber/complete', (req, res) => {
       writeData(RIDES_FILE, rides);
       res.status(201).json({ ok: true, rating });
     });
-  });
 });
 
 // الهوية (Auth)
@@ -1014,7 +1019,7 @@ app.get('/api/admin/users/:phone/history', (req, res) => {
   const wallet = wallets[`${user.role}s`]?.find(a => a.accountId === user.walletAccountId) || { balance: 0, transactions: [] };
   const rides = loadFile(RIDES_FILE).rides
     .filter(r => user.role === 'customer' ? r.customerId === user.id : r.captainId === user.id)
-    .map(enrichRideForAdmin);
+    .map(enrichRideForAdmin)
   res.json({ user: adminUserProfile(user), wallet, rides });
 });
 
@@ -1176,6 +1181,6 @@ app.post('/api/ai/chat', async (req, res) => {
     res.json({ reply });
   } catch (err) {
     console.error('[ai/chat]', err);
-    res.status(500).json({ error: 'صار خطأ في المساعد الذكي' });
+    res.status(500).json({ error: 'حدث خطأ في المساعد الذكي' });
   }
 });

@@ -28,74 +28,9 @@
         }
       ],
       "updatedAt": "2026-09-06T08:51:59.029Z"
-    },
-    {
-      "accountId": "799000222",
-      "accountName": "TestCaptain",
-      "balance": -1,
-      "transactions": [
-        {
-          "type": "credit",
-          "amount": 4,
-          "note": "أجرة رحلة NR-01650500 (???? → ????) بعد عمولة 1 د.أ",
-          "createdAt": "2026-09-06T13:34:47.347Z"
-        },
-        {
-          "type": "debit",
-          "amount": 5,
-          "note": "رسوم تسجيل كابتن (5 د.أ) — اشحن محفظتك لتفعيل استقبال الطلبات",
-          "createdAt": "2026-09-06T13:34:36.640Z",
-          "updatedBy": "غرفة التحكم"
-        }
-      ],
-      "updatedAt": "2026-09-06T13:34:47.347Z"
-    },
-    {
-      "accountId": "999900002",
-      "accountName": "Test Captain",
-      "balance": 0,
-      "transactions": []
-    },
-    {
-      "accountId": "991100002",
-      "accountName": "Test Captain",
-      "balance": 0,
-      "transactions": []
-    },
-    {
-      "accountId": "0077700002",
-      "accountName": "AckK",
-      "balance": 0,
-      "transactions": []
     }
   ],
   "customers": [
-    {
-      "accountId": "48eb098c-bd98-4f64-9503-bb9661b01c98",
-      "accountName": "Hamza",
-      "balance": 0,
-      "transactions": []
-    },
-    {
-      "accountId": "fe1cc51a-8b29-4282-84d8-1406bdf23bef",
-      "accountName": "Hamza",
-      "balance": -1,
-      "transactions": [
-        {
-          "type": "debit",
-          "amount": 1,
-          "note": "سحب رصيد من الإدارة",
-          "createdAt": "2026-09-06T13:11:00.312Z",
-          "updatedBy": "غرفة التحكم"
-        }
-      ]
-    },
-    {
-      "accountId": "49f8baa4-089d-4ff0-8323-3eefcb567e7d",
-      "accountName": "TestRider",
-      "balance": 0,
-      "transactions": []
-    },
     {
       "accountId": "0790000001",
       "accountName": "عميل تجريبي",
@@ -109,26 +44,110 @@
       "transactions": []
     },
     {
-      "accountId": "999900001",
-      "accountName": "Test Customer",
+      "accountId": "0791234567",
+      "accountName": "عميل تجريبي 2",
       "balance": 0,
       "transactions": []
     },
     {
-      "accountId": "991100001",
-      "accountName": "Test Customer",
+      "accountId": "0797778899",
+      "accountName": "عطل تجريبي",
       "balance": 0,
       "transactions": []
     },
     {
-      "accountId": "0077700001",
-      "accountName": "AckC",
+      "accountId": "0795550000",
+      "accountName": "??? API",
       "balance": 0,
       "transactions": []
     },
     {
-      "accountId": "0791112223",
-      "accountName": "???? ?????",
+      "accountId": "0791117307",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791115913",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0795551234",
+      "accountName": "فحص العميل",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791112929",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791112027",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0795551190",
+      "accountName": "QA Test",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791111912",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791117110",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791116889",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791117349",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791111984",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791117564",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791112978",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791113219",
+      "accountName": "TestRiderQA",
+      "balance": 0,
+      "transactions": []
+    },
+    {
+      "accountId": "0791111701",
+      "accountName": "TestRiderQA",
       "balance": 0,
       "transactions": []
     }
