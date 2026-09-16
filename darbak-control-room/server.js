@@ -1122,7 +1122,7 @@ app.post('/api/wallets/credit', (req, res) => {
   const amount = safeNumber(req.body?.amount, 0);
   if (amount <= 0) return res.status(400).json({ error: 'قيمة غير صحيحة' });
   acc.balance = round2((acc.balance || 0) + amount);
-  acc.transactions.unshift({ type: 'credit', amount, note: req.body?.note || 'شحن من الإدارة', createdAt: new Date().toISOString() });
+  acc.transactions.unshift({ type: 'credit', amount, note: req.body?.note || 'شحن من الإدارة', createdAt: new Date().toISOString(), updatedBy: req.body?.updatedBy || 'غرفة التحكم' });
   writeData(WALLETS_FILE, wallets);
   res.json({ ok: true, balance: acc.balance });
 });
@@ -1145,7 +1145,7 @@ app.post('/api/wallets/withdraw', (req, res) => {
   const amount = safeNumber(req.body?.amount, 0);
   if (amount <= 0 || amount > acc.balance) return res.status(400).json({ error: 'الرصيد غير كافٍ أو القيمة غير صحيحة' });
   acc.balance = round2(acc.balance - amount);
-  acc.transactions.unshift({ type: 'debit', amount: -amount, note: req.body?.note || 'سحب رصيد', createdAt: new Date().toISOString() });
+  acc.transactions.unshift({ type: 'debit', amount: -amount, note: req.body?.note || 'سحب رصيد', createdAt: new Date().toISOString(), updatedBy: req.body?.updatedBy || 'غرفة التحكم' });
   writeData(WALLETS_FILE, wallets);
   res.json({ ok: true, balance: acc.balance });
 });
