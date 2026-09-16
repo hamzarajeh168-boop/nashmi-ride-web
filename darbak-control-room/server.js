@@ -3,6 +3,12 @@ const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+// تحميل متغيرات البيئة من ملف .env (إن وجد)
+require('fs').readFileSync(path.join(__dirname, '..', '.env'), 'utf-8').split(/\r?\n/).forEach(line => {
+  const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+  if (match && process.env[match[1]] === undefined) process.env[match[1]] = match[2];
+});
+
 const { syncRides, loadRides, persistState, loadPersistentState, hasPersistentStore } = require('../db');
 
 const app = express();
