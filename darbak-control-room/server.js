@@ -3,11 +3,13 @@ const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-// تحميل متغيرات البيئة من ملف .env (إن وجد)
-require('fs').readFileSync(path.join(__dirname, '..', '.env'), 'utf-8').split(/\r?\n/).forEach(line => {
-  const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
-  if (match && process.env[match[1]] === undefined) process.env[match[1]] = match[2];
-});
+// تحميل متغيرات البيئة من ملف .env (إن وجد) — اختياري حتى لا ينهار النشر على Railway
+try {
+  require('fs').readFileSync(path.join(__dirname, '..', '.env'), 'utf-8').split(/\r?\n/).forEach(line => {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (match && process.env[match[1]] === undefined) process.env[match[1]] = match[2];
+  });
+} catch {} // لا يوجد .env — استخدم متغيرات بيئة النظام فقط
 
 const { syncRides, loadRides, persistState, loadPersistentState, hasPersistentStore } = require('../db');
 
@@ -191,6 +193,12 @@ function samePhone(left, right) {
   return Boolean(normalizedLeft && normalizedLeft === normalizedRight);
 }
 
+// Legacy records can omit the leading zero while new registrations do not.
+// Resolve wallets by phone equivalence so top-ups never create a second wallet.
+function findWalletAccount(accounts, accountId) {
+  return (accounts || []).find(account => samePhone(account.accountId, accountId));
+}
+
 function isJeepElectricEligible(vehicle) {
   return vehicle?.bodyType === 'jeep'
     && vehicle?.electric === true
@@ -321,7 +329,7 @@ app.get('/api/wallets/me', (req, res) => {
 
 app.post('/api/wallets/topup-request', (req, res) => {
   const user = getAuthenticatedUser(req);
-  if (!user || user.role !== 'captain') return res.status(401).json({ error: 'يلزم دخول الكابتن' });
+  if (!user || !['captain', 'customer'].includes(user.role)) return res.status(401).json({ error: 'يلزم تسجيل الدخول' });
   const amount = Number(req.body?.amount);
   const method = String(req.body?.method || '');
   const paymentMethod = (loadFile(PRICING_FILE).paymentMethods || []).find(item => item.id === method && item.enabled !== false);
@@ -331,9 +339,10 @@ app.post('/api/wallets/topup-request', (req, res) => {
   const topups = loadFile(TOPUPS_FILE);
   const request = {
     id: crypto.randomUUID(),
-    captainId: user.id,
+    userId: user.id,
+    role: user.role,
     accountId: user.walletAccountId,
-    captainName: user.name,
+    accountName: user.name,
     phone: user.phone,
     amount: round2(amount),
     method,
@@ -343,6 +352,41 @@ app.post('/api/wallets/topup-request', (req, res) => {
   topups.requests.unshift(request);
   writeData(TOPUPS_FILE, topups);
   res.status(201).json(request);
+});
+
+// قائمة طلبات الشحن (للإدارة)
+app.get('/api/topups', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
+  res.json(loadFile(TOPUPS_FILE).requests || []);
+});
+
+// قبول/رفض طلب شحن — القبول يضيف الرصيد للمحفظة تلقائيًا
+app.post('/api/topups/:id/decision', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
+  const decision = String(req.body?.decision || '');
+  if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'قرار غير صحيح' });
+  const topups = loadFile(TOPUPS_FILE);
+  const request = (topups.requests || []).find(item => item.id === req.params.id);
+  if (!request) return res.status(404).json({ error: 'الطلب غير موجود' });
+  if (request.status !== 'pending') return res.status(400).json({ error: 'تم معالجة هذا الطلب مسبقًا' });
+  request.status = decision === 'approve' ? 'approved' : 'rejected';
+  request.decidedAt = new Date().toISOString();
+  if (decision === 'approve') {
+    const wallets = loadFile(WALLETS_FILE);
+    const roleKey = request.role === 'customer' ? 'customers' : 'captains';
+    if (!Array.isArray(wallets[roleKey])) wallets[roleKey] = [];
+    let acc = findWalletAccount(wallets[roleKey], request.accountId);
+    if (!acc) {
+      acc = { accountId: request.accountId, accountName: request.accountName || request.accountId, balance: 0, transactions: [] };
+      wallets[roleKey].push(acc);
+    }
+    acc.balance = round2((Number(acc.balance) || 0) + safeNumber(request.amount, 0));
+    if (!Array.isArray(acc.transactions)) acc.transactions = [];
+    acc.transactions.unshift({ type: 'credit', amount: safeNumber(request.amount, 0), note: `شحن معتمد عبر ${request.method}`, createdAt: new Date().toISOString(), updatedBy: 'غرفة التحكم' });
+    writeData(WALLETS_FILE, wallets);
+  }
+  writeData(TOPUPS_FILE, topups);
+  res.json({ ok: true, request });
 });
 
 // الرحلات
@@ -379,7 +423,7 @@ app.post('/api/rides', (req, res) => {
       const price = requestedPrice > 0 ? requestedPrice : (distanceKm === null ? basePrice : estimateRidePrice(pricing, serviceType, distanceKm));
       const wallets = loadFile(WALLETS_FILE);
       if (!Array.isArray(wallets.customers)) wallets.customers = [];
-      const customerWallet = wallets.customers.find(account => account.accountId === user.walletAccountId);
+      const customerWallet = findWalletAccount(wallets.customers, user.walletAccountId);
       const walletBalance = safeNumber(customerWallet?.balance, 0);
       const walletDebit = walletBalance > 0 ? round2(Math.min(walletBalance, price)) : 0;
       if (customerWallet && walletDebit > 0) {
@@ -482,6 +526,14 @@ function refreshRideOffer(ride, rides) {
 // الطلبات المسبقة: كل رحلة تُعرض لكابتن واحد فقط لمدة 10 ثوانٍ ثم تنتقل تلقائيًا.
 app.get('/api/rides/available', (req, res) => {
   const user = getAuthenticatedUser(req);
+  // A saved login is not proof of availability: only a recently reporting,
+  // approved captain can see an incoming offer.
+  if (user?.role === 'captain') {
+    const captain = loadFile(USERS_FILE).users.find(item => item.id === user.id);
+    if (!captain || captain.status !== 'approved' || captain.available === false || !isCaptainOnline(captain)) {
+      return res.json([]);
+    }
+  }
   if (!user) return res.status(401).json({ error: 'يلزم الدخول' });
   const rides = loadFile(RIDES_FILE);
   if (!Array.isArray(rides.rides)) rides.rides = [];
@@ -577,6 +629,11 @@ app.post('/api/rides/:tripNumber/assign', (req, res) => {
   withLock('rides', () => {
     try {
       const rides = loadFile(RIDES_FILE);
+      const users = loadFile(USERS_FILE);
+      const captain = users.users.find(u => u.id === user.id && u.role === 'captain');
+      if (!captain || captain.status !== 'approved' || captain.available === false || !isCaptainOnline(captain)) {
+        return res.status(409).json({ error: 'Captain must be online and available to accept a ride' });
+      }
       const trip = rides.rides.find(r => r.tripNumber === req.params.tripNumber);
       if (!trip || trip.status !== 'searching') return res.status(409).json({ error: 'غير متاحة — ممكن حجزها كابتن ثاني' });
       if (trip.targetCaptainId && trip.targetCaptainId !== user.id) return res.status(403).json({ error: 'هذا الطلب موجّه إلى كابتن آخر' });
@@ -584,7 +641,7 @@ app.post('/api/rides/:tripNumber/assign', (req, res) => {
         return res.status(409).json({ error: 'انتهت مهلة الطلب، انتظر انتقاله لكابتن آخر' });
       }
       const captainWallets = loadFile(WALLETS_FILE);
-      const captainWallet = captainWallets.captains.find(account => account.accountId === user.walletAccountId);
+      const captainWallet = findWalletAccount(captainWallets.captains, user.walletAccountId);
       if (safeNumber(captainWallet?.balance, 0) < -1) {
         return res.status(403).json({ error: 'رصيد محفظتك أقل من الحد المسموح لاستقبال الطلبات (-1 د.أ)' });
       }
@@ -603,8 +660,6 @@ app.post('/api/rides/:tripNumber/assign', (req, res) => {
       trip.status = 'assigned'; trip.assignedAt = new Date().toISOString();
       trip.targetCaptainId = null;
 
-      const users = loadFile(USERS_FILE);
-      const captain = users.users.find(u => u.id === user.id && u.role === 'captain');
       if (captain) {
         captain.available = false;
         writeData(USERS_FILE, users);
@@ -628,6 +683,7 @@ app.post('/api/rides/:tripNumber/reject', (req, res) => {
       if (!trip) return res.status(404).json({ error: 'الرحلة غير موجودة' });
       if (trip.status !== 'searching') return res.status(409).json({ error: 'لا يمكن رفض طلب تم قبوله بالفعل' });
       if (trip.targetCaptainId && trip.targetCaptainId !== user.id) return res.status(403).json({ error: 'هذا الطلب موجّه إلى كابتن آخر' });
+      if (trip.offerCaptainId !== user.id) return res.status(409).json({ error: 'This ride is no longer offered to you' });
       trip.targetCaptainId = null;
       trip.offerCaptainId = null;
       trip.offerExpiresAt = null;
@@ -975,6 +1031,8 @@ app.post('/api/admin/users/:id/:action', (req, res) => {
   if (!user) return res.status(404).json({ error: 'الحساب غير موجود' });
   if (action === 'block') user.status = 'blocked';
   else if (action === 'unblock') user.status = 'approved';
+  else if (action === 'approve' && user.role === 'captain') user.status = 'approved';
+  else if (action === 'reject' && user.role === 'captain') user.status = 'rejected';
   else if (action === 'archive') user.status = 'archived';
   else if (action === 'restore') user.status = 'approved';
   else if (action === 'delete') {
@@ -1016,6 +1074,18 @@ app.post('/api/admin/captains/:id/:action', (req, res) => {
 });
 
 // بحث عن حساب برقم الهاتف + سجل رحلاته ومحفظته
+// Save vehicle/documents from the captain-review cards in the control room.
+app.put('/api/admin/captains/:id/profile', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'Invalid admin key' });
+  const users = loadFile(USERS_FILE);
+  const user = users.users.find(u => u.id === req.params.id && u.role === 'captain');
+  if (!user) return res.status(404).json({ error: 'Captain not found' });
+  if (req.body?.vehicle && typeof req.body.vehicle === 'object') user.vehicle = { ...(user.vehicle || {}), ...req.body.vehicle };
+  if (req.body?.documents && typeof req.body.documents === 'object') user.documents = { ...(user.documents || {}), ...req.body.documents };
+  writeData(USERS_FILE, users);
+  res.json({ ok: true, user: publicUser(user) });
+});
+
 app.get('/api/admin/users/:phone/history', (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'مفتاح الإدارة غير صحيح' });
   const users = loadFile(USERS_FILE);
@@ -1120,7 +1190,7 @@ app.post('/api/wallets/credit', (req, res) => {
   const roleKey = req.body?.role === 'customer' ? 'customers' : 'captains';
   const accountId = normalizePhone(req.body?.accountId || req.body?.phone);
   if (!accountId) return res.status(400).json({ error: 'رقم الهاتف يجب أن يكون 9 أو 10 أرقام' });
-  let acc = wallets[roleKey].find(a => a.accountId === accountId);
+  let acc = findWalletAccount(wallets[roleKey], accountId);
   if (!acc) {
     acc = { accountId, accountName: req.body?.accountName || accountId, balance: 0, transactions: [] };
     wallets[roleKey].push(acc);

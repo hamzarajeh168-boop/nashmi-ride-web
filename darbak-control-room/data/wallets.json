@@ -1,40 +1,40 @@
-{
+﻿{
     "captains":  [
                      {
-                         "accountId":  "790905612",
-                         "accountName":  "hamza",
                          "balance":  0,
+                         "accountId":  "790905612",
+                         "updatedAt":  "2026-09-06T08:51:59.029Z",
+                         "accountName":  "hamza",
                          "transactions":  [
                                               {
+                                                  "note":  "Ø³Ø­Ø¨ Ø±ØµÙŠØ¯ Ù…Ù† Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©",
                                                   "type":  "debit",
                                                   "amount":  -105,
-                                                  "note":  "سحب رصيد من الإدارة",
                                                   "createdAt":  "2026-09-06T08:52:35.054Z",
-                                                  "updatedBy":  "غرفة التحكم"
+                                                  "updatedBy":  "ØºØ±ÙØ© Ø§Ù„ØªØ­ÙƒÙ…"
                                               },
                                               {
+                                                  "note":  "Ø¥Ø±Ø³Ø§Ù„ Ø±ØµÙŠØ¯ Ù…Ù† Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©",
                                                   "type":  "credit",
                                                   "amount":  100,
-                                                  "note":  "إرسال رصيد من الإدارة",
                                                   "createdAt":  "2026-09-06T08:51:59.029Z",
-                                                  "updatedBy":  "مسؤول غرفة التحكم"
+                                                  "updatedBy":  "Ù…Ø³Ø¤ÙˆÙ„ ØºØ±ÙØ© Ø§Ù„ØªØ­ÙƒÙ…"
                                               },
                                               {
+                                                  "note":  "Ø¥Ø±Ø³Ø§Ù„ Ø±ØµÙŠØ¯ Ù…Ù† Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©",
                                                   "type":  "credit",
                                                   "amount":  5,
-                                                  "note":  "إرسال رصيد من الإدارة",
                                                   "createdAt":  "2026-09-06T08:51:41.014Z",
-                                                  "updatedBy":  "مسؤول غرفة التحكم"
+                                                  "updatedBy":  "Ù…Ø³Ø¤ÙˆÙ„ ØºØ±ÙØ© Ø§Ù„ØªØ­ÙƒÙ…"
                                               }
-                                          ],
-                         "updatedAt":  "2026-09-06T08:51:59.029Z"
+                                          ]
                      }
                  ],
     "customers":  [
                       {
-                          "accountId":  "0790905611",
-                          "accountName":  "حمزة",
                           "balance":  0,
+                          "accountId":  "0790905611",
+                          "accountName":  "Ø­Ù…Ø²Ø©",
                           "transactions":  [
 
                                            ]

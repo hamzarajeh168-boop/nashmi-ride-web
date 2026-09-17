@@ -69,6 +69,7 @@ const els = {
   adminRidesMsg: document.getElementById('adminRidesMsg'),
   adminRidesList: document.getElementById('adminRidesList'),
   withdrawRole: document.getElementById('withdrawRole'), withdrawPhone: document.getElementById('withdrawPhone'), withdrawAmount: document.getElementById('withdrawAmount'), withdrawBtn: document.getElementById('withdrawBtn'), withdrawMsg: document.getElementById('withdrawMsg'),
+  topupRefreshBtn: document.getElementById('topupRefreshBtn'), topupMsg: document.getElementById('topupMsg'), topupList: document.getElementById('topupList'),
   usersRefreshBtn: document.getElementById('usersRefreshBtn'), usersMsg: document.getElementById('usersMsg'), usersList: document.getElementById('usersList'),
   usersSearch: document.getElementById('usersSearch'),
 };
@@ -252,10 +253,15 @@ function renderWallets(accounts) {
 }
 
 async function loadWallets() {
+  const key = els.adminKey.value.trim();
+  if (!key) return showWalletMsg('أدخل مفتاح الإدارة أولًا', 'err');
   try {
-    const res = await fetch(`/api/wallets?role=${els.walletRole.value}`);
-    if (!res.ok) throw new Error('تعذّر تحميل الأرصدة');
-    renderWallets(await res.json());
+    localStorage.setItem('darbak_admin_key', key);
+    const res = await fetch(`/api/wallets?role=${els.walletRole.value}`, { headers: { 'x-admin-key': key } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'تعذّر تحميل الأرصدة');
+    renderWallets(data);
+    showWalletMsg('تم تحميل الأرصدة', 'ok');
   } catch (e) {
     els.walletMsg.textContent = e.message;
     els.walletMsg.className = 'msg err';
@@ -272,6 +278,7 @@ async function sendWalletCredit() {
 
   els.sendWalletBtn.disabled = true;
   try {
+    localStorage.setItem('darbak_admin_key', key);
     const res = await fetch('/api/wallets/credit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
@@ -421,11 +428,54 @@ function showAdminRidesMsg(text, type = 'err') {
 function showTripMsg(text, type = 'err') { els.tripSearchMsg.textContent = text; els.tripSearchMsg.className = `msg ${type}`; }
 
 async function withdrawBalance() {
-  const res = await fetch('/api/wallets/withdraw', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': els.adminKey.value.trim() }, body: JSON.stringify({ role: els.withdrawRole.value, phone: els.withdrawPhone.value.trim(), amount: Number(els.withdrawAmount.value), updatedBy: 'غرفة التحكم' }) });
-  const data = await res.json(); els.withdrawMsg.textContent = res.ok ? `تم السحب. الرصيد الحالي: ${Number(data.balance).toFixed(2)} د.أ` : data.error; els.withdrawMsg.className = `msg ${res.ok ? 'ok' : 'err'}`;
+  const key = els.adminKey.value.trim(), amount = Number(els.withdrawAmount.value);
+  if (!key || !els.withdrawPhone.value.trim() || !Number.isFinite(amount) || amount <= 0) {
+    els.withdrawMsg.textContent = 'أدخل مفتاح الإدارة ورقم الهاتف وقيمة صحيحة'; els.withdrawMsg.className = 'msg err'; return;
+  }
+  try {
+    localStorage.setItem('darbak_admin_key', key);
+    const res = await fetch('/api/wallets/withdraw', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ role: els.withdrawRole.value, phone: els.withdrawPhone.value.trim(), amount, updatedBy: 'غرفة التحكم' }) });
+    const data = await res.json(); els.withdrawMsg.textContent = res.ok ? `تم السحب. الرصيد الحالي: ${Number(data.balance).toFixed(2)} د.أ` : (data.error || 'تعذر السحب'); els.withdrawMsg.className = `msg ${res.ok ? 'ok' : 'err'}`;
+    if (res.ok) await loadWallets();
+  } catch { els.withdrawMsg.textContent = 'تعذر الاتصال بالخادم'; els.withdrawMsg.className = 'msg err'; }
 }
 
 let cachedUsers = [];
+
+async function loadTopups() {
+  const key = els.adminKey.value.trim();
+  if (!key) return;
+  try {
+    const res = await fetch('/api/topups', { headers: { 'x-admin-key': key } });
+    const requests = await res.json();
+    if (!res.ok) throw new Error(requests.error || 'تعذّر تحميل الطلبات');
+    renderTopups(requests);
+  } catch (e) {
+    els.topupMsg.textContent = e.message; els.topupMsg.className = 'msg err';
+  }
+}
+
+function renderTopups(requests) {
+  els.topupList.innerHTML = requests.length
+    ? requests.map((item) => `<div class="wallet-row"><span>${item.accountName || '—'} · ${item.role === 'customer' ? 'عميل' : 'كابتن'}<small>${item.phone || item.accountId} · ${Number(item.amount).toFixed(2)} د.أ · ${item.method || ''} · ${item.createdAt ? new Date(item.createdAt).toLocaleString('ar-JO') : ''}<br>الحالة: ${item.status === 'pending' ? 'معلّق' : item.status === 'approved' ? 'معتمد ✅' : 'مرفوض ✖'}</small></span><span>${item.status === 'pending'
+      ? `<button class="btn-gold" data-topup-id="${item.id}" data-topup-action="approve">قبول</button> <button class="btn-ghost" data-topup-id="${item.id}" data-topup-action="reject">رفض</button>`
+      : ''}</span></div>`).join('')
+    : '<p class="meta">لا توجد طلبات شحن.</p>';
+  els.topupList.querySelectorAll('[data-topup-id]').forEach((button) => button.addEventListener('click', async () => {
+    if (button.dataset.topupAction === 'approve' && !confirm('اعتماد هذا الطلب وإضافة الرصيد للمحفظة؟')) return;
+    try {
+      const res = await fetch(`/api/topups/${button.dataset.topupId}/decision`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': els.adminKey.value.trim() }, body: JSON.stringify({ decision: button.dataset.topupAction }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'تعذر تنفيذ الإجراء');
+      els.topupMsg.textContent = button.dataset.topupAction === 'approve' ? 'تم اعتماد الشحن وإضافة الرصيد ✅' : 'تم رفض الطلب';
+      els.topupMsg.className = 'msg ok';
+      await loadTopups();
+      await loadWallets();
+    } catch (e) {
+      els.topupMsg.textContent = e.message; els.topupMsg.className = 'msg err';
+    }
+  }));
+}
 
 function renderUsers(users) {
   els.usersList.innerHTML = users.map((user) => `<div class="wallet-row"${user.status === 'archived' ? ' style="opacity:.55"' : ''}><span>${user.name} · ${user.role === 'captain' ? 'كابتن' : 'عميل'}<small>${user.phone}${user.status === 'pending' ? ' · بانتظار موافقة الإدارة' : user.status === 'archived' ? ' · مؤرشف' : user.status === 'blocked' ? ' · محظور' : ''}</small></span><span>${user.status === 'pending' && user.role === 'captain'
@@ -437,7 +487,9 @@ function renderUsers(users) {
     if (button.dataset.userAction === 'reject' && !confirm('رفض طلب تسجيل هذا الكابتن؟')) return;
     if (button.dataset.userAction === 'archive' && !confirm('أرشفة هذا الحساب؟ يمكن استرجاعه لاحقًا.')) return;
     if (button.dataset.userAction === 'delete' && !confirm('سيتم أرشفة الحساب مع حفظ بياناته وسجله، هل تريد المتابعة؟')) return;
-    await fetch(`/api/admin/users/${button.dataset.userId}/${button.dataset.userAction}`, { method: 'POST', headers: { 'x-admin-key': els.adminKey.value.trim() } });
+    const res = await fetch(`/api/admin/users/${button.dataset.userId}/${button.dataset.userAction}`, { method: 'POST', headers: { 'x-admin-key': els.adminKey.value.trim() } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { els.usersMsg.textContent = data.error || 'تعذر تنفيذ الإجراء'; els.usersMsg.className = 'msg err'; return; }
     loadUsers();
   }));
 }
@@ -499,6 +551,7 @@ els.walletRefreshBtn.addEventListener('click', loadWallets);
 els.walletRole.addEventListener('change', loadWallets);
 els.captainsRefreshBtn.addEventListener('click', loadCaptains);
 els.customerSearchBtn.addEventListener('click', searchCustomer);
+els.topupRefreshBtn.addEventListener('click', loadTopups);
 els.supportRefreshBtn.addEventListener('click', loadSupportTickets);
 els.tripSearchBtn.addEventListener('click', searchTrip);
 els.adminRidesRefreshBtn.addEventListener('click', loadAdminRides);
@@ -554,4 +607,5 @@ els.promoRefreshBtn.addEventListener('click', loadPromos);
 
 loadPricing();
 loadWallets();
+loadTopups();
 loadCaptains();
