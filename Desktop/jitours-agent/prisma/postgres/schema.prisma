@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tour {
+  id               String      @id @default(cuid())
+  title            String
+  slug             String      @unique
+  destination      String
+  cities           Json
+  category         String
+  durationDays     Int
+  durationNights   Int
+  hotelClass       String      @default("4 star")
+  shortDescription String
+  description      String
+  coverImage       String
+  gallery          Json
+  status           String      @default("DRAFT")
+  itinerary        Json
+  prices           TourPrice[]
+  singleSupplement Float       @default(0)
+  currency         String      @default("USD")
+  seasonalNote     String      @default("")
+  priceOnRequest   Boolean     @default(false)
+  included         Json
+  excluded         Json
+  startPoint       String      @default("")
+  endPoint         String      @default("")
+  availableDates   String      @default("Daily")
+  minGroupSize     Int         @default(1)
+  maxGroupSize     Int         @default(20)
+  difficulty       String      @default("Easy")
+  whatToBring      String      @default("")
+  practicalNotes   String      @default("")
+  agentNotes       String      @default("")
+  isSample         Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+model TourPrice {
+  id        String   @id @default(cuid())
+  tourId    String
+  groupSize String
+  adult     Float
+  child     Float
+  infant    Float
+  tour      Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@unique([tourId, groupSize])
+}
+
+model FAQ {
+  id        String   @id @default(cuid())
+  topic     String
+  question  String
+  answer    String
+  sortOrder Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model CompanyInfo {
+  id                 String   @id @default("company")
+  name               String   @default("Jordan Inspiration Tours")
+  about              String   @default("")
+  phone              String   @default("")
+  whatsapp           String   @default("")
+  email              String   @default("")
+  address            String   @default("")
+  officeHours        String   @default("")
+  bookingSteps       String   @default("")
+  cancellationPolicy String   @default("")
+  updatedAt          DateTime @updatedAt
+}
+
+model AgentSettings {
+  id                 String   @id @default("agent")
+  name               String   @default("Nashmi")
+  greeting           String   @default("")
+  tone               String   @default("friendly")
+  replyLength        String   @default("short")
+  handoverMessage    String   @default("")
+  whatsapp           String   @default("")
+  collectLeadDetails Boolean  @default(true)
+  updatedAt          DateTime @updatedAt
+}
+
+model AiSettings {
+  id              String   @id @default("ai")
+  encryptedApiKey String?
+  updatedAt       DateTime @updatedAt
+}
+
+model KnowledgeItem {
+  id        String   @id @default(cuid())
+  topic     String
+  content   String
+  active    Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model Conversation {
+  id           String   @id @default(cuid())
+  language     String   @default("")
+  firstMessage String   @default("")
+  messages     Json
+  lead         Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: nashmi-ride-web
+    runtime: node
+    rootDir: Desktop/jitours-agent
+    plan: free
+    buildCommand: npm ci && npm run db:generate:postgres && npx next build
+    startCommand: npm run db:migrate:postgres && npm run seed:if-empty:postgres && npm start
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nashmi-ride-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CLAUDE_MODEL
+        value: claude-3-5-sonnet-latest
+
+databases:
+  - name: nashmi-ride-db
+    databaseName: nashmi_ride
+    user: nashmi
+    plan: free
