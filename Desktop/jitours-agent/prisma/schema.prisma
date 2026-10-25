@@ -80,7 +80,7 @@ model CompanyInfo {
 
 model AgentSettings {
   id                String   @id @default("agent")
-  name              String   @default("Nashmi")
+  name              String   @default("Jordan Inspiration Tours")
   greeting          String   @default("")
   tone              String   @default("friendly")
   replyLength       String   @default("short")

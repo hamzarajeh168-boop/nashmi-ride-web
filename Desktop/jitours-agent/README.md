@@ -19,7 +19,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). The public tour catalogue is at `/`, the chat at `/chat`, the combined demo login at `/login`, and the protected staff dashboard at `/admin`.
 
-Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before signing into the admin tab. The customer tab on the same login page is a demo guest entry and does not create a customer account. You can set `ANTHROPIC_API_KEY` in `.env`, or save the key from **Admin > Agent settings > Claude API connection**. Without a key, the assistant uses a deliberately limited database-only fallback.
+Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before signing into the admin tab. Set `CUSTOMER_EMAIL` and `CUSTOMER_PASSWORD` to configure the demo traveller login on the customer tab. You can set `ANTHROPIC_API_KEY` in `.env`, or save the key from **Admin > Agent settings > Claude API connection**. Without a key, the assistant uses a deliberately limited database-only fallback.
 
 ### Environment
 
@@ -29,6 +29,8 @@ Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before signing into the admin t
 | `ANTHROPIC_API_KEY` | Optional server-side fallback Claude key; never exposed to the browser |
 | `CLAUDE_MODEL` | Claude model identifier |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Single demo administrator credentials |
+| `CUSTOMER_NAME` | Display name for the demo traveller |
+| `CUSTOMER_EMAIL` / `CUSTOMER_PASSWORD` | Demo traveller sign-in credentials |
 | `SESSION_SECRET` | Unique random secret (at least 32 characters), used for sessions and encrypting an API key saved from the admin UI |
 | `NEXT_PUBLIC_SITE_URL` | Public base URL |
 
@@ -57,7 +59,7 @@ Local development uses SQLite with `prisma/schema.prisma`. The Render deployment
 The repository includes a Render Blueprint at [`render.yaml`](./render.yaml). It provisions a Node web service and PostgreSQL database, applies PostgreSQL migrations on startup, and seeds the sample data only when the database has not been initialized yet. The SQLite schema and local workflow remain unchanged; the Render/PostgreSQL schema and its migration history live under `prisma/postgres/`.
 
 1. Push this repository to GitHub and create a new Blueprint in Render using that repository.
-2. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` when Render prompts for the unsynced values. Render generates `SESSION_SECRET` automatically.
+2. Set `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `CUSTOMER_NAME`, `CUSTOMER_EMAIL`, and `CUSTOMER_PASSWORD` when Render prompts for the unsynced values. Render generates `SESSION_SECRET` automatically.
 3. Deploy the Blueprint, then sign in at `/login?mode=admin`. Add the Anthropic key from **Agent settings**; it is encrypted using the generated session secret.
 
 The Blueprint currently uses Render's **Free** plans for a demo preview. Free web services can spin down when idle, and free PostgreSQL databases expire after 30 days (with a limited recovery period before deletion). Do not use these plans for production or long-term data. Before relying on the site, upgrade the web service and database to paid plans in Render. Keep the web service and database in the same region.

@@ -92,7 +92,7 @@ async function main() {
   });
   await db.agentSettings.upsert({
     where: { id: "agent" },
-    create: { id: "agent", name: "Nashmi", greeting: "Ahlan! I'm Nashmi, your Jordan travel companion. What kind of trip are you dreaming about?", tone: "friendly", replyLength: "short", handoverMessage: "Our travel team can help with availability and a personal quote.", whatsapp: "+962 79 000 0000", collectLeadDetails: true },
+    create: { id: "agent", name: "Jordan Inspiration Tours", greeting: "Ahlan! I'm your Jordan Inspiration Tours travel assistant. What kind of trip are you dreaming about?", tone: "friendly", replyLength: "short", handoverMessage: "Our travel team can help with availability and a personal quote.", whatsapp: "+962 79 000 0000", collectLeadDetails: true },
     update: {},
   });
   const initialKnowledge = [

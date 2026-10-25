@@ -14,11 +14,18 @@ export async function POST(request: NextRequest) {
     if (email !== expectedEmail || body?.password !== expectedPassword) {
       return NextResponse.json({ error: "Email or password is incorrect." }, { status: 401 });
     }
-  } else if (!String(body?.name || "").trim()) {
-    return NextResponse.json({ error: "Enter your name to continue as a demo guest." }, { status: 400 });
+  } else {
+    const expectedEmail = process.env.CUSTOMER_EMAIL?.trim().toLowerCase();
+    const expectedPassword = process.env.CUSTOMER_PASSWORD;
+    if (!expectedEmail || !expectedPassword) {
+      return NextResponse.json({ error: "Customer demo credentials are not configured." }, { status: 503 });
+    }
+    if (email !== expectedEmail || body?.password !== expectedPassword) {
+      return NextResponse.json({ error: "Customer email or password is incorrect." }, { status: 401 });
+    }
   }
 
-  const token = await createSession(mode, email || `guest:${String(body.name).trim()}`);
+  const token = await createSession(mode, email);
   const response = NextResponse.json({ ok: true, redirect: mode === "admin" ? "/admin" : "/chat" });
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,

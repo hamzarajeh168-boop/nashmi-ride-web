@@ -14,7 +14,7 @@ const companyFields = [
   ["bookingSteps", "Booking steps", "textarea"], ["cancellationPolicy", "Cancellation policy", "textarea"],
 ];
 const agentDefaults: Fields = {
-  name: "Nashmi", greeting: "Ahlan! I'm Nashmi, your Jordan travel companion.", tone: "friendly",
+  name: "Jordan Inspiration Tours", greeting: "Ahlan! I'm your Jordan Inspiration Tours travel assistant.", tone: "friendly",
   replyLength: "short", handoverMessage: "Our travel team can help with availability and a personal quote.",
   whatsapp: "", collectLeadDetails: true,
 };

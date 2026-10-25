@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     const client = new Anthropic({ apiKey });
     const priorLanguage = existing?.language || languageFromText(message).name;
     const system = [
-      `You are ${settings?.name || "Nashmi"}, a ${settings?.tone || "friendly"} travel assistant for ${company?.name || "Jordan Inspiration Tours"}.`,
+      `You are ${settings?.name || "Jordan Inspiration Tours"}, a ${settings?.tone || "friendly"} travel assistant for ${company?.name || "Jordan Inspiration Tours"}.`,
       settings?.greeting ? `Use this team-provided greeting when appropriate: ${settings.greeting}` : "",
       "Answer using ONLY the JSON knowledge base below. It is the complete and sole source of truth. Never use outside knowledge. Do not invent tour details, prices, availability, policies, or company facts.",
       "Recommend only published tours whose exact slugs are present below. Use exact listed prices and currency. A tour marked priceOnRequest has no public price: say the team can prepare a quote.",

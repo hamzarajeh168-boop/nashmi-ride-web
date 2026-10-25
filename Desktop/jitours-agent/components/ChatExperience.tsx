@@ -19,12 +19,18 @@ function ChatPanel({ embedded = false, onClose }: { embedded?: boolean; onClose?
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [language, setLanguage] = useState("");
+  const [agentName, setAgentName] = useState("Jordan Inspiration Tours");
   const [conversationId, setConversationId] = useState("");
   const [error, setError] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
   useEffect(() => { setTourSlug(new URLSearchParams(window.location.search).get("tour")); }, []);
+  useEffect(() => {
+    fetch("/api/public/contact").then((response) => response.json()).then((contact) => {
+      if (typeof contact.agentName === "string" && contact.agentName) setAgentName(contact.agentName);
+    }).catch((reason: unknown) => console.error("Unable to load the travel assistant name.", reason));
+  }, []);
   const suggested = tourSlug
     ? ["What is included?", "How much does it cost?", "Is this right for my family?"]
     : ["Plan a 5-day Jordan trip", "What is the best time to visit?", "Tell me about Petra"];
@@ -90,7 +96,7 @@ function ChatPanel({ embedded = false, onClose }: { embedded?: boolean; onClose?
   return (
     <section className={`chat-panel${embedded ? " chat-embedded" : " chat-full"}`} aria-label="Travel assistant">
       <div className="chat-heading">
-        <div className="agent-avatar">N</div><div className="chat-heading-copy"><strong>Nashmi</strong><span><i /> Jordan travel assistant</span></div>
+        <div className="agent-avatar">J</div><div className="chat-heading-copy"><strong>{agentName}</strong><span><i /> Jordan Inspiration Tours assistant</span></div>
         {language && <span className="language-tag">Language detected: {language}</span>}
         <button type="button" className="icon-button" onClick={reset} aria-label="Reset conversation"><RotateCcw size={17} /></button>
         {embedded && <button type="button" className="icon-button" onClick={onClose} aria-label="Close chat"><X size={18} /></button>}

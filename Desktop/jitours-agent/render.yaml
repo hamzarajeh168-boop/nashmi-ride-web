@@ -18,6 +18,12 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      - key: CUSTOMER_NAME
+        sync: false
+      - key: CUSTOMER_EMAIL
+        sync: false
+      - key: CUSTOMER_PASSWORD
+        sync: false
       - key: CLAUDE_MODEL
         value: claude-3-5-sonnet-latest
 
