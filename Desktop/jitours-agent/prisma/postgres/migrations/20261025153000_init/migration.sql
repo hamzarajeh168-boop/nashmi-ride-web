@@ -84,7 +84,7 @@ CREATE TABLE "CompanyInfo" (
 -- CreateTable
 CREATE TABLE "AgentSettings" (
     "id" TEXT NOT NULL DEFAULT 'agent',
-    "name" TEXT NOT NULL DEFAULT 'Nashmi',
+    "name" TEXT NOT NULL DEFAULT 'Jordan Inspiration Tours',
     "greeting" TEXT NOT NULL DEFAULT '',
     "tone" TEXT NOT NULL DEFAULT 'friendly',
     "replyLength" TEXT NOT NULL DEFAULT 'short',

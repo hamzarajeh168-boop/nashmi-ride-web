@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: nashmi-ride-web
+    name: jordan-inspiration-tours
     runtime: node
     rootDir: Desktop/jitours-agent
     plan: free
@@ -10,7 +10,7 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: nashmi-ride-db
+          name: jordan-inspiration-db
           property: connectionString
       - key: SESSION_SECRET
         generateValue: true
@@ -25,10 +25,10 @@ services:
       - key: CUSTOMER_PASSWORD
         sync: false
       - key: CLAUDE_MODEL
-        value: claude-3-5-sonnet-latest
+        value: claude-sonnet-5-5
 
 databases:
-  - name: nashmi-ride-db
-    databaseName: nashmi_ride
-    user: nashmi
+  - name: jordan-inspiration-db
+    databaseName: jordan_inspiration
+    user: jitours
     plan: free
