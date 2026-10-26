@@ -18,6 +18,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
       itinerary: asInputJson(data.itinerary),
       included: asInputJson(data.included),
       excluded: asInputJson(data.excluded),
+      translations: asInputJson(data.translations),
       title: `${source.title} (copy)`,
       slug: `${source.slug}-copy-${Date.now().toString(36)}`,
       status: "DRAFT",

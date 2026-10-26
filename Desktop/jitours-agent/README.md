@@ -27,7 +27,8 @@ Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before signing into the admin t
 | --- | --- |
 | `DATABASE_URL` | Prisma connection string; local default is `file:./dev.db` |
 | `ANTHROPIC_API_KEY` | Optional server-side fallback Claude key; never exposed to the browser |
-| `CLAUDE_MODEL` | Claude model identifier |
+| `CLAUDE_MODEL` | Claude model identifier (OpenRouter ids look like `anthropic/claude-haiku-5.5`) |
+| `ANTHROPIC_BASE_URL` | Optional; set automatically to OpenRouter for `sk-or-` keys |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Single demo administrator credentials |
 | `CUSTOMER_NAME` | Display name for the demo traveller |
 | `CUSTOMER_EMAIL` / `CUSTOMER_PASSWORD` | Demo traveller sign-in credentials |
@@ -39,6 +40,37 @@ Use a unique, random `SESSION_SECRET` of at least 32 characters before saving an
 ## Sample information
 
 `npm run seed` inserts five marked sample tours, FAQ/policy answers, company details, agent settings and staff-managed knowledge notes. The seed can be run again safely for tours and singleton settings; it refreshes the sample FAQ list. Sample images use public Unsplash URLs.
+
+## Tour programmes (JIT-01 … JIT-58)
+
+The company programmes live as Markdown files in `data/programmes/`. `npm run seed` imports them automatically after the base seed; to re-import after editing a file, run:
+
+```powershell
+npm run import:programmes
+```
+
+Optional cover photos per slug go in `data/programmes/images.json` (used for the tours outside Jordan). The import upserts each tour by slug, keeps every price row (labelled by group size and hotel class, e.g. `2 travellers · 4-star`), derives child prices from the programmes' 25% child discount, and moves the five original demo tours to **Draft** so they no longer reach the site or the agent.
+
+## Site languages
+
+Interface text is translated in `components/LocaleProvider.tsx`. Tour content (titles, descriptions, itineraries, inclusions, notes) is translated with Claude and stored per tour in `Tour.translations`:
+
+```powershell
+npm run translate:tours            # titles and short descriptions, all five languages
+npm run translate:tours -- --full  # full tour pages as well (about $0.002 per tour per language on Haiku)
+```
+
+Only missing or outdated translations are sent. When staff edit a tour, its pages show English until the command is run again.
+
+To run a second dev server (for example for QA) without breaking the main one, give it its own build folder: `$env:NEXT_DIST_DIR=".next-qa"; npx next dev -p 3124`.
+
+## Using an OpenRouter key
+
+An `sk-or-…` key is detected automatically and sent to OpenRouter's Anthropic-compatible endpoint. Use an OpenRouter model id such as `CLAUDE_MODEL="anthropic/claude-haiku-5.5"` (cheapest) or `"anthropic/claude-sonnet-5.5"`. Each chat turn sends a compact catalogue of all published tours plus FAQs and company data (about 15k tokens, prompt-cached); the agent fetches a tour's full record with the `get_tour_details` tool only when it needs prices, hotels or the itinerary. A turn costs roughly $0.003 on Haiku 5.5.
+
+## Testing the agent
+
+With the app running, `npm run eval:agent` (or `npm run eval:agent -- http://localhost:3123`) sends 19 realistic customer questions in six languages and checks prices, language, recommended tours, the WhatsApp handover, lead capture and that nothing is invented. Add cases to `scripts/agent-eval.mjs` as new questions come up.
 
 ## Admin and agent
 

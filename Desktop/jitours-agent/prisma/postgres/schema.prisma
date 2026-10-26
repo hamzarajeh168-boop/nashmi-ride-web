@@ -39,6 +39,7 @@ model Tour {
   whatToBring      String      @default("")
   practicalNotes   String      @default("")
   agentNotes       String      @default("")
+  translations   Json        @default("{}")
   isSample         Boolean     @default(false)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt

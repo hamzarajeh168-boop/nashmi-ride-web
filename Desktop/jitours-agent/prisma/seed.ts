@@ -54,8 +54,16 @@ const faqs = [
   ["Visa", "Do I need a visa to visit Jordan?", "Visa requirements depend on your nationality and travel plans. Please check with the nearest Jordanian embassy or official government source before travelling; our team can help you understand the tour logistics."],
   ["Visa", "Is the Jordan Pass included?", "The Jordan Pass is not included unless it is explicitly listed in your selected tour's inclusions. Ask our team to confirm for your itinerary."],
   ["Payment", "How can I pay for a tour?", "Contact our team to confirm payment methods and the booking deposit for your selected trip. Payment terms are confirmed with your quote."],
-  ["Cancellation", "What is the cancellation policy?", "The cancellation terms are confirmed in your booking documents. As a general guide, cancellation fees may be 25% for cancellations 30 or more days before travel, 50% for 15–29 days, and 75% for 7–14 days. Terms must be confirmed for your booking."],
+  ["Cancellation", "What is the cancellation policy?", "Cancellation fees: 25% from 45 days before arrival, 50% from 15 days before arrival, 75% from 7 days before arrival, and 100% for a no-show. Your booking documents confirm the terms for your trip."],
   ["Cancellation", "Can I change my travel dates?", "Date changes are subject to availability and supplier terms. Contact us as early as possible so we can check your booking."],
+  ["Payment", "Are there discounts for children?", "Children aged 6–11 sharing a room with two adults get 25% off; children under 6 travel free."],
+  ["Payment", "Are the hotels in the programme guaranteed?", "Hotels are subject to availability; similar hotels are suggested and booked only with the guests' approval."],
+  ["Visa", "How much is the Petra entrance ticket?", "Petra entrance is 90 JD for a day visit without an overnight stay in Jordan and 50 JD with an overnight stay. On our 1-day Petra tour from Amman, Jordan Pass holders get a refund of the Petra ticket part."],
+  ["Visa", "Do I get a free visa if I fly into Aqaba?", "Aqaba is a special economic zone, so arrivals by air at Aqaba often get a free visa. Please check the rules for your nationality before travelling."],
+  ["Visa", "Can I get a visa at the Wadi Araba (Arava) border?", "The visa at the Wadi Araba border is not free; it is covered for groups booked through a licensed operator staying 2+ nights. Israeli exit tax and Jordan border fees may apply."],
+  ["Visa", "What do I need to cross the Allenby (King Hussein) Bridge?", "A Jordan multiple-entry visa is needed to re-enter Jordan via the Allenby Bridge; we arrange it before arrival. Bridge opening hours change on Fridays, Saturdays and holidays. Exit taxes are about 47 US$ leaving Israel and 10 JD leaving Jordan."],
+  ["Visa", "Do I need a visa for Egypt or Saudi Arabia on the combined tours?", "Egypt: a visa fee of about 25 US$ applies. Saudi Arabia: a tourist e-visa (about 120 US$) must be obtained online before travel. Neither is included in the tour price."],
+  ["Best time to visit", "When is Wadi Mujib open?", "The Wadi Mujib Siq Trail is open from April to October and closes from November to March and after rain; an alternative dry canyon is offered then."],
   ["Packing", "What should I pack for Jordan?", "Comfortable walking shoes, sun protection, a refillable water bottle, and modest layers are useful. Check the practical notes for your selected tour."],
   ["Packing", "What is the dress code?", "Lightweight, modest clothing is a practical choice when visiting communities and religious sites. Some sites may have additional requirements."],
   ["Safety", "Is Jordan safe for visitors?", "Safety conditions can change. Check current official travel advisories before departure and follow local guidance during your trip."],
@@ -87,12 +95,12 @@ async function main() {
   await db.fAQ.createMany({ data: faqs.map(([topic, question, answer], index) => ({ topic, question, answer, sortOrder: index })) });
   await db.companyInfo.upsert({
     where: { id: "company" },
-    create: { id: "company", name: "Jordan Inspiration Tours", about: "Locally inspired journeys through Jordan and the wider region. Our team helps travellers discover Petra, Wadi Rum, the Dead Sea and more.", phone: "+962 6 555 0100", whatsapp: "+962 79 000 0000", email: "hello@jitours.demo", address: "Amman, Jordan", officeHours: "Sunday–Thursday, 9:00–17:00 (Jordan time)", bookingSteps: "1. Choose a tour. 2. Send your preferred dates and group details. 3. Our team confirms availability and sends your quote. 4. Confirm your booking with the team.", cancellationPolicy: faqs[4][2] },
+    create: { id: "company", name: "Jordan Inspiration Tours", about: "Locally inspired journeys through Jordan and the wider region. Our team helps travellers discover Petra, Wadi Rum, the Dead Sea and more.", phone: "+962 6 555 0100", whatsapp: "+962 775100882", email: "info@jitours.com", address: "Amman, Jordan", officeHours: "Sunday–Thursday, 9:00–17:00 (Jordan time)", bookingSteps: "1. Choose a tour. 2. Send your preferred dates and group details. 3. Our team confirms availability and sends your quote. 4. Confirm your booking with the team.", cancellationPolicy: faqs[3][2] },
     update: {},
   });
   await db.agentSettings.upsert({
     where: { id: "agent" },
-    create: { id: "agent", name: "Jordan Inspiration Tours", greeting: "Ahlan! I'm your Jordan Inspiration Tours travel assistant. What kind of trip are you dreaming about?", tone: "friendly", replyLength: "short", handoverMessage: "Our travel team can help with availability and a personal quote.", whatsapp: "+962 79 000 0000", collectLeadDetails: true },
+    create: { id: "agent", name: "Jordan Inspiration Tours", greeting: "Ahlan! I'm your Jordan Inspiration Tours travel assistant. What kind of trip are you dreaming about?", tone: "friendly", replyLength: "short", handoverMessage: "Our travel team can help with availability and a personal quote.", whatsapp: "+962 775100882", collectLeadDetails: true },
     update: {},
   });
   const initialKnowledge = [

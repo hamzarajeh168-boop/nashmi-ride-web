@@ -17,7 +17,7 @@ const categories = [
 ];
 const destinations = [
   ["Petra", "The rose-red city", "https://images.unsplash.com/photo-1579606032821-4e6161c81bd3?auto=format&fit=crop&w=900&q=80"],
-  ["Wadi Rum", "Desert without end", "https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?auto=format&fit=crop&w=900&q=80"],
+  ["Wadi Rum", "Desert without end", "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/32/Wadi_Rum_landscape_%2812465264714%29.jpg/1920px-Wadi_Rum_landscape_%2812465264714%29.jpg"],
   ["Dead Sea", "A world below sea level", "https://images.unsplash.com/photo-1544986581-efac024faf62?auto=format&fit=crop&w=900&q=80"],
   ["Amman", "A city of many stories", "https://images.unsplash.com/photo-1512632578888-169bbbc64f33?auto=format&fit=crop&w=900&q=80"],
 ];

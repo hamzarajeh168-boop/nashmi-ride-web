@@ -28,10 +28,10 @@ export function PublicFooter() {
       <div className="footer-grid">
         <div><Link href="/" className="brand footer-brand"><span className="brand-mark"><Compass size={25} /></span><span className="brand-copy"><strong>JORDAN INSPIRATION</strong><small>TOURS · TRAVEL YOUR WAY</small></span></Link><p><T>Local knowledge. Meaningful journeys. Your Jordan, your way.</T></p><div className="socials"><a href="https://instagram.com" aria-label="Instagram"><Instagram size={17} /></a><a href="https://facebook.com" aria-label="Facebook"><Facebook size={17} /></a></div></div>
         <div><h3><T>Explore</T></h3><Link href="/#tours"><T>Our tours</T></Link><Link href="/#destinations"><T>Destinations</T></Link><Link href="/#about"><T>About us</T></Link></div>
-        <div><h3><T>Here to help</T></h3><a href="tel:+96265550100"><Phone size={15} /> +962 6 555 0100</a><a href="mailto:hello@jitours.demo"><Mail size={15} /> hello@jitours.demo</a><a href="/chat"><T>Ask our travel assistant</T></a></div>
+        <div><h3><T>Here to help</T></h3><a href="tel:+96265550100"><Phone size={15} /> +962 6 555 0100</a><a href="mailto:info@jitours.com"><Mail size={15} /> info@jitours.com</a><a href="/chat"><T>Ask our travel assistant</T></a></div>
         <div><h3><T>Find your Jordan</T></h3><Link href="/#destinations"><T>Petra</T></Link><Link href="/#destinations"><T>Wadi Rum</T></Link><Link href="/#destinations"><T>Dead Sea</T></Link><Link href="/#destinations"><T>Amman</T></Link></div>
       </div>
-      <div className="footer-bottom"><span>© {new Date().getFullYear()} Jordan Inspiration Tours · Demo experience</span><span><MapPin size={14} /> <T>Amman</T>, Jordan</span></div>
+      <div className="footer-bottom"><span>© {new Date().getFullYear()} Jordan Inspiration Tours · <T>Demo experience</T></span><span><MapPin size={14} /> <T>Amman</T>, Jordan</span></div>
     </footer>
   );
 }

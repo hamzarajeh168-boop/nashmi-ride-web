@@ -115,6 +115,35 @@ const extraTranslations: Partial<Record<Language, Record<string, string>>> = {
   },
 };
 
+// Destinations, hotel classes, meal codes and other short labels that appear across pages.
+const labelTranslations: Partial<Record<Language, Record<string, string>>> = {
+  AR: {
+    "Jordan": "الأردن", "Egypt": "مصر", "Holy Land": "الأراضي المقدسة", "Saudi Arabia": "السعودية", "Turkey": "تركيا", "Lebanon": "لبنان", "Oman": "عُمان",
+    "3 star": "3 نجوم", "4 star": "4 نجوم", "5 star": "5 نجوم", "B": "فطور", "L": "غداء", "D": "عشاء", "Demo experience": "نسخة تجريبية",
+    "Petra · The Nabataean city": "البتراء · مدينة الأنباط", "Wadi Rum · A desert like no other": "وادي رم · صحراء لا مثيل لها", "Dead Sea · The lowest place on earth": "البحر الميت · أخفض بقعة على الأرض",
+  },
+  ES: {
+    "Jordan": "Jordania", "Egypt": "Egipto", "Holy Land": "Tierra Santa", "Saudi Arabia": "Arabia Saudí", "Turkey": "Turquía", "Lebanon": "Líbano", "Oman": "Omán",
+    "3 star": "3 estrellas", "4 star": "4 estrellas", "5 star": "5 estrellas", "B": "Desayuno", "L": "Almuerzo", "D": "Cena", "Demo experience": "Versión de demostración",
+    "Petra · The Nabataean city": "Petra · La ciudad nabatea", "Wadi Rum · A desert like no other": "Wadi Rum · Un desierto único", "Dead Sea · The lowest place on earth": "Mar Muerto · El punto más bajo de la Tierra",
+  },
+  DE: {
+    "Jordan": "Jordanien", "Egypt": "Ägypten", "Holy Land": "Heiliges Land", "Saudi Arabia": "Saudi-Arabien", "Turkey": "Türkei", "Lebanon": "Libanon", "Oman": "Oman",
+    "3 star": "3 Sterne", "4 star": "4 Sterne", "5 star": "5 Sterne", "B": "Frühstück", "L": "Mittagessen", "D": "Abendessen", "Demo experience": "Demo-Version",
+    "Petra · The Nabataean city": "Petra · Die Stadt der Nabatäer", "Wadi Rum · A desert like no other": "Wadi Rum · Eine einzigartige Wüste", "Dead Sea · The lowest place on earth": "Totes Meer · Der tiefste Punkt der Erde",
+  },
+  FR: {
+    "Jordan": "Jordanie", "Egypt": "Égypte", "Holy Land": "Terre sainte", "Saudi Arabia": "Arabie saoudite", "Turkey": "Turquie", "Lebanon": "Liban", "Oman": "Oman",
+    "3 star": "3 étoiles", "4 star": "4 étoiles", "5 star": "5 étoiles", "B": "Petit-déjeuner", "L": "Déjeuner", "D": "Dîner", "Demo experience": "Version de démonstration",
+    "Petra · The Nabataean city": "Petra · La cité nabatéenne", "Wadi Rum · A desert like no other": "Wadi Rum · Un désert unique", "Dead Sea · The lowest place on earth": "Mer Morte · Le point le plus bas de la Terre",
+  },
+  IT: {
+    "Jordan": "Giordania", "Egypt": "Egitto", "Holy Land": "Terra Santa", "Saudi Arabia": "Arabia Saudita", "Turkey": "Turchia", "Lebanon": "Libano", "Oman": "Oman",
+    "3 star": "3 stelle", "4 star": "4 stelle", "5 star": "5 stelle", "B": "Colazione", "L": "Pranzo", "D": "Cena", "Demo experience": "Versione demo",
+    "Petra · The Nabataean city": "Petra · La città dei Nabatei", "Wadi Rum · A desert like no other": "Wadi Rum · Un deserto unico", "Dead Sea · The lowest place on earth": "Mar Morto · Il punto più basso della Terra",
+  },
+};
+
 type LocaleContextValue = {
   language: Language;
   setLanguage: (language: Language) => void;
@@ -142,7 +171,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   }
 
   function translate(text: string) {
-    return translations[language][text] ?? extraTranslations[language]?.[text] ?? text;
+    return translations[language][text] ?? extraTranslations[language]?.[text] ?? labelTranslations[language]?.[text] ?? text;
   }
 
   return <LocaleContext.Provider value={{ language, setLanguage, translate }}>{children}</LocaleContext.Provider>;

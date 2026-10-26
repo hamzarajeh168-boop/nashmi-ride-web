@@ -15,9 +15,11 @@ try {
 if (needsSeed) {
   const cli = resolve("node_modules/tsx/dist/cli.mjs");
   if (!existsSync(cli)) throw new Error("The tsx seed runner is missing from node_modules.");
-  const result = spawnSync(process.execPath, [cli, "prisma/seed.ts"], { stdio: "inherit", env: process.env });
-  if (result.error) throw result.error;
-  if (result.status !== 0) process.exit(result.status ?? 1);
+  for (const script of ["prisma/seed.ts", "prisma/import-programmes.ts"]) {
+    const result = spawnSync(process.execPath, [cli, script], { stdio: "inherit", env: process.env });
+    if (result.error) throw result.error;
+    if (result.status !== 0) process.exit(result.status ?? 1);
+  }
 } else {
   console.log("Database already contains company data; skipping sample seed.");
 }

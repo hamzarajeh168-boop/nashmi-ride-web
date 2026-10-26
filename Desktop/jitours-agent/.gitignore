@@ -7,3 +7,4 @@ out/
 *.tsbuildinfo
 *.db-journal
 next-env.d.ts
+.next-qa/

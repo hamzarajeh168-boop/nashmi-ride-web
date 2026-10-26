@@ -560,3 +560,6 @@ html[dir="rtl"] .whatsapp-float { right: auto; left: 30px; }
   .detail-gallery { height: 130px; }.included-grid { grid-template-columns: 1fr; }
   .admin-sidebar { width: 51px; flex-basis: 51px; }.admin-main { margin-left: 51px; }.admin-nav-link { height: 36px; }.admin-top-label { letter-spacing: .05em; }.admin-content { padding: 18px 9px 30px; }
 }
+
+/* Tour text from the database keeps its paragraph and line breaks. */
+.detail-description, .itinerary-copy p, .practical-grid p { white-space: pre-line; }
